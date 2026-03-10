@@ -1,6 +1,5 @@
 name: Package Addon
 
-# 设定触发条件：当你推送以 v 开头的标签（如 v1.0.0）时，自动运行打包
 on:
   push:
     tags:
@@ -9,14 +8,17 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # ⬇️ 关键：增加下面这两行权限配置
+    permissions:
+      contents: write
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # 获取完整历史记录，以便正确读取版本号
+          fetch-depth: 0
 
       - name: Package and Create GitHub Release
         uses: BigWigsMods/packager@v2
         env:
-          # 这个 Token 是 GitHub 自带的，不需要你手动配置，它负责把打包好的 ZIP 传到你的 Release 页面
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
