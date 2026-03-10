@@ -1,0 +1,32 @@
+## Interface: 120001
+## Title: |cff00ffccW|cff00f8cci|cff00f1ccs|cff00ebcch|cff00e4ccF|cff00ddaal|cff00d6aae|cff00cfaax|r
+## Author: Wish
+## Version: 2.0
+## RequiredDeps: ElvUI
+## OptionalDeps: LibCustomGlow-1.0, LibSharedMedia-3.0, SharedMedia
+## SavedVariables: WishFlex_Storage
+## IconTexture: Interface\AddOns\ElvUI_WishFlex\Media\Textures\Logo2.tga
+## Notes-zhCN: ElvUI增强小工具
+## SavedVariables: WishFlexGlobalDB
+
+Core.lua
+Modules\KeyBinder.lua
+Modules\RareAlert.lua
+Modules\VehicleBar.lua
+Modules\StripeSkin.lua
+Modules\LustMonitor.lua
+Modules\CooldownCustom.lua
+Modules\ClassResource.lua
+Modules\ActionTimer.lua
+Modules\Narrative.lua
+Modules\CooldownTracker.lua
+Modules\WishTargetAlert.lua
+Modules\AuraGlow.lua
+Modules\WorldMarker.lua
+Modules\SmartHide.lua
+Modules\Glow.lua
+Modules\MacroUI.lua
+Modules\RightClick.lua
+Modules\SpellAlpha.lua
+Modules\ChatSetup.lua
+Options.lua
