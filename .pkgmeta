@@ -1,12 +1,9 @@
 # .pkgmeta 文件内容
-
-# 忽略掉不需要打包进 ZIP 的文件和文件夹
 ignore:
-  - .github            # 忽略自动打包脚本所在的文件夹
-  - .vscode            # 忽略编辑器配置
-  - .git               # 忽略 Git 历史
-  - .gitattributes     # 忽略 Git 属性文件
-  - .pkgmeta           # 忽略这个配置文件本身
-  - README.md          # 忽略项目说明文档（如果你有的话）
+  - .github
+  - .vscode
+  - .git
+  - .gitattributes
+  - .pkgmeta
+  - README.md
   - CHANGELOG.md
-  # 如果你有特定的模块不想打包，也可以写在这里，例如：
