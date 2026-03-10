@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: |cff00ffccW|cff00f8cci|cff00f1ccs|cff00ebcch|cff00e4ccF|cff00ddaal|cff00d6aae|cff00cfaax|r
 ## Author: Wish
-## Version: 2.0
+## Version: 3.0
 ## RequiredDeps: ElvUI
 ## OptionalDeps: LibCustomGlow-1.0, LibSharedMedia-3.0, SharedMedia
 ## SavedVariables: WishFlex_Storage
