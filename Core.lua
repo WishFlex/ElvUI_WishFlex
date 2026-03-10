@@ -9,8 +9,10 @@ if LSM then
     LSM:Register("statusbar", "WishFlex-clean", [[Interface\AddOns\ElvUI_WishFlex\Media\Textures\WishUI-clean.tga]])
     LSM:Register("statusbar", "Wish2", [[Interface\AddOns\ElvUI_WishFlex\Media\Textures\Wish2.tga]])
     LSM:Register("statusbar", "Wish3", [[Interface\AddOns\ElvUI_WishFlex\Media\Textures\Wish3.tga]])
+    LSM:Register("font", "Wish-AvantGarde", [[Interface\AddOns\ElvUI_WishFlex\Media\Fonts\avantgarde.ttf]], 255)
+    LSM:Register("font", "Wish-Pannetje", [[Interface\AddOns\ElvUI_WishFlex\Media\Fonts\pannetje.ttf]], 255)
+    LSM:Register("font", "Wish-SG09", [[Interface\AddOns\ElvUI_WishFlex\Media\Fonts\SG09.ttf]], 255)
 end
-
 local WF = E:NewModule('WishFlex', 'AceEvent-3.0', 'AceHook-3.0')
 WF.Title = "|cff00ffccWishFlex|r"
 
@@ -19,7 +21,6 @@ function WF:Initialize()
     local moduleMapping = {
         ["chatSetup"] = "WishFlex_ChatSetup",  
         ["keybinder"] = "WishFlex_KeyBinder",
-        ["actionTimer"] = "ActionTimer", 
         ["worldMarker"] = "WorldMarker", 
         ["cooldownCustom"] = "CooldownCustom", 
         ["spellAlpha"] = "WishFlex_SpellAlpha", 

@@ -22,12 +22,12 @@ P["WishFlex"].cdManager = {
     glowAutocastParticles = 4, glowAutocastFrequency = 0.2, glowAutocastScale = 1, glowAutocastXOffset = 0, glowAutocastYOffset = 0,
     glowButtonFrequency = 0, glowProcDuration = 1, glowProcXOffset = 0, glowProcYOffset = 0,
 
-    Utility = { attachToPlayer = true, attachX = 0, attachY = 1, width = 45, height = 30, iconGap = 2, growth = "CENTER", cdFontSize = 18, cdFontColor = DEFAULT_CD_COLOR, cdXOffset = 0, cdYOffset = 0, stackFontSize = 14, stackFontColor = DEFAULT_STACK_COLOR, stackXOffset = 12, stackYOffset = -12 },
-    BuffBar = { width = 120, height = 30, iconGap = 2, growth = "DOWN", cdFontSize = 18, cdFontColor = DEFAULT_CD_COLOR, cdXOffset = 0, cdYOffset = 0, stackFontSize = 14, stackFontColor = DEFAULT_STACK_COLOR, stackXOffset = 12, stackYOffset = -12 },
-    BuffIcon = { width = 45, height = 45, iconGap = 2, growth = "CENTER", cdFontSize = 18, cdFontColor = DEFAULT_CD_COLOR, cdXOffset = 0, cdYOffset = 0, stackFontSize = 14, stackFontColor = DEFAULT_STACK_COLOR, stackXOffset = 12, stackYOffset = -12 }, 
-    Essential = { enableCustomLayout = true, injectActionTimer = false, maxPerRow = 7, iconGap = 2, 
-        row1Width = 45, row1Height = 45, row1CdFontSize = 18, row1CdFontColor = DEFAULT_CD_COLOR, row1CdXOffset = 0, row1CdYOffset = 0, row1StackFontSize = 14, row1StackFontColor = DEFAULT_STACK_COLOR, row1StackXOffset = 12, row1StackYOffset = -12, 
-        row2Width = 40, row2Height = 40, row2IconGap = 2, row2CdFontSize = 18, row2CdFontColor = DEFAULT_CD_COLOR, row2CdXOffset = 0, row2CdYOffset = 0, row2StackFontSize = 14, row2StackFontColor = DEFAULT_STACK_COLOR, row2StackXOffset = 12, row2StackYOffset = -12 },
+    Utility = { attachToPlayer = true, attachX = 0, attachY = 1, width = 45, height = 30, iconGap = 2, growth = "CENTER", cdFontSize = 18, cdFontColor = DEFAULT_CD_COLOR, cdPosition = "CENTER", cdXOffset = 0, cdYOffset = 0, stackFontSize = 14, stackFontColor = DEFAULT_STACK_COLOR, stackPosition = "BOTTOMRIGHT", stackXOffset = 0, stackYOffset = 0 },
+    BuffBar = { width = 120, height = 30, iconGap = 2, growth = "DOWN", cdFontSize = 18, cdFontColor = DEFAULT_CD_COLOR, cdPosition = "CENTER", cdXOffset = 0, cdYOffset = 0, stackFontSize = 14, stackFontColor = DEFAULT_STACK_COLOR, stackPosition = "BOTTOMRIGHT", stackXOffset = 0, stackYOffset = 0 },
+    BuffIcon = { width = 45, height = 45, iconGap = 2, growth = "CENTER", cdFontSize = 18, cdFontColor = DEFAULT_CD_COLOR, cdPosition = "CENTER", cdXOffset = 0, cdYOffset = 0, stackFontSize = 14, stackFontColor = DEFAULT_STACK_COLOR, stackPosition = "BOTTOMRIGHT", stackXOffset = 0, stackYOffset = 0 }, 
+    Essential = { enableCustomLayout = true, maxPerRow = 7, iconGap = 2, 
+        row1Width = 45, row1Height = 45, row1CdFontSize = 18, row1CdFontColor = DEFAULT_CD_COLOR, row1CdPosition = "CENTER", row1CdXOffset = 0, row1CdYOffset = 0, row1StackFontSize = 14, row1StackFontColor = DEFAULT_STACK_COLOR, row1StackPosition = "BOTTOMRIGHT", row1StackXOffset = 0, row1StackYOffset = 0, 
+        row2Width = 40, row2Height = 40, row2IconGap = 2, row2CdFontSize = 18, row2CdFontColor = DEFAULT_CD_COLOR, row2CdPosition = "CENTER", row2CdXOffset = 0, row2CdYOffset = 0, row2StackFontSize = 14, row2StackFontColor = DEFAULT_STACK_COLOR, row2StackPosition = "BOTTOMRIGHT", row2StackXOffset = 0, row2StackYOffset = 0 },
     countFont = "Expressway", countFontOutline = "OUTLINE", countFontColor = DEFAULT_STACK_COLOR,
 }
 
@@ -167,19 +167,21 @@ local function SafeMover(frame, moverName, title, defaultPoint)
     if not frame.mover then E:CreateMover(frame, moverName, title, nil, nil, nil, "ALL,WishFlex") end
 end
 
+local textPositionValues = { ["TOP"] = "上", ["BOTTOM"] = "底", ["LEFT"] = "左", ["RIGHT"] = "右", ["CENTER"] = "居中", ["TOPLEFT"] = "左上", ["TOPRIGHT"] = "右上", ["BOTTOMLEFT"] = "左下", ["BOTTOMRIGHT"] = "右下" }
+
 local function GetEssentialGroup(dbKey, tabName, order)
     return {
         order = order, type = "group", name = tabName,
         get = function(i) return E.db.WishFlex.cdManager[dbKey][i[#i]] end,
         set = function(i, v) E.db.WishFlex.cdManager[dbKey][i[#i]] = v; mod:TriggerLayout() end,
         args = {
-            layoutStatus = { order = 1, type = "group", name = "第一行", guiInline = true, args = { enableCustomLayout = { order = 1, type = "toggle", name = "启用双行" }, injectActionTimer = { order = 1.5, type = "toggle", name = "合并饰品药水", get = function() return E.db.WishFlex.cdManager.Essential.injectActionTimer end, set = function(_, v) E.db.WishFlex.cdManager.Essential.injectActionTimer = v; mod:TriggerLayout(); local AT = WUI:GetModule('ActionTimer', true); if AT and not v then AT:UpdateLayout() end end }, maxPerRow = { order = 2, type = "range", name = "最大数", min = 1, max = 20, step = 1 }, iconGap = { order = 3, type = "range", name = "间距", min = 0, max = 20, step = 1 } } },
+            layoutStatus = { order = 1, type = "group", name = "第一行", guiInline = true, args = { enableCustomLayout = { order = 1, type = "toggle", name = "启用双行" }, maxPerRow = { order = 2, type = "range", name = "最大数", min = 1, max = 20, step = 1 }, iconGap = { order = 3, type = "range", name = "间距", min = 0, max = 20, step = 1 } } },
             row1Size = { order = 2, type = "group", name = "第一行尺寸", guiInline = true, args = { row1Width = { order=1, type="range", name="宽度", min=10, max=100, step=1 }, row1Height = { order=2, type="range", name="高度", min=10, max=100, step=1 } } },
-            row1CdText = { order = 3, type = "group", name = "第一行 冷却倒计时", guiInline = true, args = { row1CdFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row1CdFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row1CdFontColor; return t and t.r or 1, t and t.g or 0.82, t and t.b or 0 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row1CdFontColor={r=r,g=g,b=b} end}, row1CdXOffset = {order=3,type="range",name="X偏移",min=-50,max=50,step=1}, row1CdYOffset = {order=4,type="range",name="Y偏移",min=-50,max=50,step=1} } },
-            row1StackText = { order = 4, type = "group", name = "第一行 层数文本", guiInline = true, args = { row1StackFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row1StackFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row1StackFontColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row1StackFontColor={r=r,g=g,b=b} end}, row1StackXOffset = {order=3,type="range",name="X偏移",min=-50,max=50,step=1}, row1StackYOffset = {order=4,type="range",name="Y偏移",min=-50,max=50,step=1} } },
+            row1CdText = { order = 3, type = "group", name = "第一行 冷却倒计时", guiInline = true, args = { row1CdFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row1CdFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row1CdFontColor; return t and t.r or 1, t and t.g or 0.82, t and t.b or 0 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row1CdFontColor={r=r,g=g,b=b} end}, row1CdPosition = {order=3,type="select",name="基准位置",values=textPositionValues}, row1CdXOffset = {order=4,type="range",name="X微调",min=-50,max=50,step=1}, row1CdYOffset = {order=5,type="range",name="Y微调",min=-50,max=50,step=1} } },
+            row1StackText = { order = 4, type = "group", name = "第一行 层数文本", guiInline = true, args = { row1StackFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row1StackFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row1StackFontColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row1StackFontColor={r=r,g=g,b=b} end}, row1StackPosition = {order=3,type="select",name="基准位置",values=textPositionValues}, row1StackXOffset = {order=4,type="range",name="X微调",min=-50,max=50,step=1}, row1StackYOffset = {order=5,type="range",name="Y微调",min=-50,max=50,step=1} } },
             row2Size = { order = 5, type = "group", name = "第二行尺寸", guiInline = true, args = { row2Width = { order=1, type="range", name="宽度", min=10, max=100, step=1 }, row2Height = { order=2, type="range", name="高度", min=10, max=100, step=1 }, row2IconGap = { order=3, type="range", name="间距", min=0, max=20, step = 1 } } },
-            row2CdText = { order = 6, type = "group", name = "第二行 冷却倒计时", guiInline = true, args = { row2CdFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row2CdFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row2CdFontColor; return t and t.r or 1, t and t.g or 0.82, t and t.b or 0 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row2CdFontColor={r=r,g=g,b=b} end}, row2CdXOffset = {order=3,type="range",name="X偏移",min=-50,max=50,step=1}, row2CdYOffset = {order=4,type="range",name="Y偏移",min=-50,max=50,step=1} } },
-            row2StackText = { order = 7, type = "group", name = "第二行 层数文本", guiInline = true, args = { row2StackFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row2StackFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row2StackFontColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row2StackFontColor={r=r,g=g,b=b} end}, row2StackXOffset = {order=3,type="range",name="X偏移",min=-50,max=50,step=1}, row2StackYOffset = {order=4,type="range",name="Y偏移",min=-50,max=50,step=1} } }
+            row2CdText = { order = 6, type = "group", name = "第二行 冷却倒计时", guiInline = true, args = { row2CdFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row2CdFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row2CdFontColor; return t and t.r or 1, t and t.g or 0.82, t and t.b or 0 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row2CdFontColor={r=r,g=g,b=b} end}, row2CdPosition = {order=3,type="select",name="基准位置",values=textPositionValues}, row2CdXOffset = {order=4,type="range",name="X微调",min=-50,max=50,step=1}, row2CdYOffset = {order=5,type="range",name="Y微调",min=-50,max=50,step=1} } },
+            row2StackText = { order = 7, type = "group", name = "第二行 层数文本", guiInline = true, args = { row2StackFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, row2StackFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager.Essential.row2StackFontColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1 end, set=function(_,r,g,b) E.db.WishFlex.cdManager.Essential.row2StackFontColor={r=r,g=g,b=b} end}, row2StackPosition = {order=3,type="select",name="基准位置",values=textPositionValues}, row2StackXOffset = {order=4,type="range",name="X微调",min=-50,max=50,step=1}, row2StackYOffset = {order=5,type="range",name="Y微调",min=-50,max=50,step=1} } }
         }
     }
 end
@@ -193,15 +195,16 @@ local function GetCDSubGroup(dbKey, tabName, order, isVertical)
         args = {
             layout = { order = 1, type = "group", name = "排版", guiInline = true, args = { growth = { order = 1, type = "select", name = "增长方向", values = growthValues }, iconGap = { order = 2, type = "range", name = "间距", min = 0, max = 20, step = 1 } } },
             sizeSet = { order = 2, type = "group", name = "图标宽高", guiInline = true, args = { width = {order=1,type="range",name="宽度",min=10,max=400,step=1}, height = {order=2,type="range",name="高度",min=10,max=100,step=1} } },
-            cdText = { order = 3, type = "group", name = "冷却倒计时", guiInline = true, args = { cdFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, cdFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager[dbKey].cdFontColor; return t and t.r or 1, t and t.g or 0.82, t and t.b or 0 end, set=function(_,r,g,b) E.db.WishFlex.cdManager[dbKey].cdFontColor={r=r,g=g,b=b} end}, cdXOffset = {order=3,type="range",name="X偏移",min=-50,max=50,step=1}, cdYOffset = {order=4,type="range",name="Y偏移",min=-50,max=50,step=1} } },
-            stackText = { order = 4, type = "group", name = "层数文本", guiInline = true, args = { stackFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, stackFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager[dbKey].stackFontColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1 end, set=function(_,r,g,b) E.db.WishFlex.cdManager[dbKey].stackFontColor={r=r,g=g,b=b} end}, stackXOffset = {order=3,type="range",name="X偏移",min=-50,max=50,step=1}, stackYOffset = {order=4,type="range",name="Y偏移",min=-50,max=50,step=1} } },
+            cdText = { order = 3, type = "group", name = "冷却倒计时", guiInline = true, args = { cdFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, cdFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager[dbKey].cdFontColor; return t and t.r or 1, t and t.g or 0.82, t and t.b or 0 end, set=function(_,r,g,b) E.db.WishFlex.cdManager[dbKey].cdFontColor={r=r,g=g,b=b} end}, cdPosition = {order=3,type="select",name="基准位置",values=textPositionValues}, cdXOffset = {order=4,type="range",name="X微调",min=-50,max=50,step=1}, cdYOffset = {order=5,type="range",name="Y微调",min=-50,max=50,step=1} } },
+            stackText = { order = 4, type = "group", name = "层数文本", guiInline = true, args = { stackFontSize = {order=1,type="range",name="大小",min=4,max=40,step=1}, stackFontColor = {order=2,type="color",name="颜色",get=function() local t=E.db.WishFlex.cdManager[dbKey].stackFontColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1 end, set=function(_,r,g,b) E.db.WishFlex.cdManager[dbKey].stackFontColor={r=r,g=g,b=b} end}, stackPosition = {order=3,type="select",name="基准位置",values=textPositionValues}, stackXOffset = {order=4,type="range",name="X微调",min=-50,max=50,step=1}, stackYOffset = {order=5,type="range",name="Y微调",min=-50,max=50,step=1} } },
         }
     }
 end
 
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
-    WUI.OptionsArgs.cdmanager = { order = 20, type = "group", name = "|cff00e5cc冷却管理器|r", childGroups = "tab", args = {} }
+    WUI.OptionsArgs.cdmanager = WUI.OptionsArgs.cdmanager or { order = 20, type = "group", name = "|cff00e5cc冷却管理器|r", childGroups = "tab", args = {} }
+    WUI.OptionsArgs.cdmanager.args = WUI.OptionsArgs.cdmanager.args or {}
     local args = WUI.OptionsArgs.cdmanager.args
     
     args.base = { 
@@ -248,7 +251,7 @@ local function InjectOptions()
     }
     args.essential = GetEssentialGroup("Essential", "重要技能", 2)
     
-    args.utility = GetCDSubGroup("Utility", "效能技能", 4, false)
+    args.utility = GetCDSubGroup("Utility", "效能技能", 3, false)
     args.utility.args.layout.args.attachToPlayer = {
         order = 3, type = "toggle", name = "吸附玩家头像(右上)", desc = "勾选后将完美对齐到玩家框体的外部边界，消灭缝隙。",
         get = function() return E.db.WishFlex.cdManager.Utility.attachToPlayer end,
@@ -267,12 +270,11 @@ local function InjectOptions()
         disabled = function() return not E.db.WishFlex.cdManager.Utility.attachToPlayer end
     }
 
-    args.bufficon = GetCDSubGroup("BuffIcon", "增益图标", 5, false) 
-    args.buffbar = GetCDSubGroup("BuffBar", "增益条", 6, true) 
+    args.bufficon = GetCDSubGroup("BuffIcon", "增益图标", 4, false) 
+    args.buffbar = GetCDSubGroup("BuffBar", "增益条", 5, true) 
 end
 
 local function SortByLayoutIndex(a, b) return (a.layoutIndex or 999) < (b.layoutIndex or 999) end
-local function SortByATDataId(a, b) return a.data.id < b.data.id end
 
 local function StaticUpdateSwipeColor(self)
     local b = self:GetParent()
@@ -308,15 +310,17 @@ function mod:ApplySwipeSettings(frame)
     end
 end
 
-local function FormatText(t, isStack, cdSize, cdColor, cdX, cdY, stackSize, stackColor, stackX, stackY, fontPath, outline, frame)
+local function FormatText(t, isStack, cdSize, cdColor, cdPos, cdX, cdY, stackSize, stackColor, stackPos, stackX, stackY, fontPath, outline, frame)
     if not t or type(t) ~= "table" or not t.SetFont then return end
     local size = isStack and stackSize or cdSize
     local color = isStack and stackColor or cdColor
-    local ox = isStack and stackX or cdX
-    local oy = isStack and stackY or cdY
+    local pos = isStack and stackPos or cdPos or "CENTER"
+    local ox = isStack and stackX or cdX or 0
+    local oy = isStack and stackY or cdY or 0
     
     if t.FontTemplate then t:FontTemplate(fontPath, size, outline) else t:SetFont(fontPath, size, outline) end
-    t:SetTextColor(color.r, color.g, color.b); t:ClearAllPoints(); t:SetPoint("CENTER", frame.Icon or frame, "CENTER", ox, oy); t:SetDrawLayer("OVERLAY", 7)
+    t:SetTextColor(color.r, color.g, color.b); t:ClearAllPoints()
+    t:SetPoint(pos, frame.Icon or frame, pos, ox, oy); t:SetDrawLayer("OVERLAY", 7)
 end
 
 function mod:ApplyText(frame, category, rowIndex)
@@ -325,33 +329,33 @@ function mod:ApplyText(frame, category, rowIndex)
     if not cfg then return end
     local fontPath = LSM:Fetch('font', db.countFont or "Expressway")
     local outline = db.countFontOutline or "OUTLINE"
-    local cdSize, cdColor, cdX, cdY, stackSize, stackColor, stackX, stackY
+    local cdSize, cdColor, cdPos, cdX, cdY, stackSize, stackColor, stackPos, stackX, stackY
 
     if category == "Essential" then
         if rowIndex == 2 then 
-            cdSize, cdColor, cdX, cdY = cfg.row2CdFontSize, cfg.row2CdFontColor, cfg.row2CdXOffset, cfg.row2CdYOffset
-            stackSize, stackColor, stackX, stackY = cfg.row2StackFontSize, cfg.row2StackFontColor, cfg.row2StackXOffset, cfg.row2StackYOffset
+            cdSize, cdColor, cdPos, cdX, cdY = cfg.row2CdFontSize, cfg.row2CdFontColor, cfg.row2CdPosition or "CENTER", cfg.row2CdXOffset or 0, cfg.row2CdYOffset or 0
+            stackSize, stackColor, stackPos, stackX, stackY = cfg.row2StackFontSize, cfg.row2StackFontColor, cfg.row2StackPosition or "BOTTOMRIGHT", cfg.row2StackXOffset or 0, cfg.row2StackYOffset or 0
         else 
-            cdSize, cdColor, cdX, cdY = cfg.row1CdFontSize, cfg.row1CdFontColor, cfg.row1CdXOffset, cfg.row1CdYOffset
-            stackSize, stackColor, stackX, stackY = cfg.row1StackFontSize, cfg.row1StackFontColor, cfg.row1StackXOffset, cfg.row1StackYOffset
+            cdSize, cdColor, cdPos, cdX, cdY = cfg.row1CdFontSize, cfg.row1CdFontColor, cfg.row1CdPosition or "CENTER", cfg.row1CdXOffset or 0, cfg.row1CdYOffset or 0
+            stackSize, stackColor, stackPos, stackX, stackY = cfg.row1StackFontSize, cfg.row1StackFontColor, cfg.row1StackPosition or "BOTTOMRIGHT", cfg.row1StackXOffset or 0, cfg.row1StackYOffset or 0
         end
     else
-        cdSize, cdColor, cdX, cdY = cfg.cdFontSize, cfg.cdFontColor, cfg.cdXOffset, cfg.cdYOffset
-        stackSize, stackColor, stackX, stackY = cfg.stackFontSize, cfg.stackFontColor, cfg.stackXOffset, cfg.stackYOffset
+        cdSize, cdColor, cdPos, cdX, cdY = cfg.cdFontSize, cfg.cdFontColor, cfg.cdPosition or "CENTER", cfg.cdXOffset or 0, cfg.cdYOffset or 0
+        stackSize, stackColor, stackPos, stackX, stackY = cfg.stackFontSize, cfg.stackFontColor, cfg.stackPosition or "BOTTOMRIGHT", cfg.stackXOffset or 0, cfg.stackYOffset or 0
     end
 
-    local stackText = (frame.Applications and frame.Applications.Applications) or (frame.ChargeCount and frame.ChargeCount.Current) or (not frame.isHijackedByEssential and frame.Count)
+    local stackText = (frame.Applications and frame.Applications.Applications) or (frame.ChargeCount and frame.ChargeCount.Current) or frame.Count
     if frame.Cooldown then
-        if frame.Cooldown.timer and frame.Cooldown.timer.text then FormatText(frame.Cooldown.timer.text, false, cdSize, cdColor, cdX, cdY, stackSize, stackColor, stackX, stackY, fontPath, outline, frame) end
+        if frame.Cooldown.timer and frame.Cooldown.timer.text then FormatText(frame.Cooldown.timer.text, false, cdSize, cdColor, cdPos, cdX, cdY, stackSize, stackColor, stackPos, stackX, stackY, fontPath, outline, frame) end
         
         for k = 1, select("#", frame.Cooldown:GetRegions()) do 
             local region = select(k, frame.Cooldown:GetRegions())
             if region and region.IsObjectType and region:IsObjectType("FontString") then 
-                FormatText(region, false, cdSize, cdColor, cdX, cdY, stackSize, stackColor, stackX, stackY, fontPath, outline, frame) 
+                FormatText(region, false, cdSize, cdColor, cdPos, cdX, cdY, stackSize, stackColor, stackPos, stackX, stackY, fontPath, outline, frame) 
             end 
         end
     end
-    FormatText(stackText, true, cdSize, cdColor, cdX, cdY, stackSize, stackColor, stackX, stackY, fontPath, outline, frame)
+    FormatText(stackText, true, cdSize, cdColor, cdPos, cdX, cdY, stackSize, stackColor, stackPos, stackX, stackY, fontPath, outline, frame)
 end
 
 function mod:ImmediateStyleFrame(frame, category)
@@ -394,7 +398,6 @@ local cachedIcons = {}
 local cachedFrames = {}
 local cachedR1 = {}
 local cachedR2 = {}
-local cachedActiveAT = {}
 
 local function DoLayoutBuffs(viewerName, key, isVertical)
     local db = E.db.WishFlex.cdManager
@@ -592,17 +595,6 @@ function mod:UpdateAllLayouts()
                     local f = cachedFrames[i]
                     if i <= cfgE.maxPerRow then r1c = r1c + 1; cachedR1[r1c] = f else r2c = r2c + 1; cachedR2[r2c] = f end 
                 end
-                
-                local AT = WUI:GetModule('ActionTimer', true)
-                if cfgE.injectActionTimer and AT and AT.Frames and AT.trackedItems then
-                    table.wipe(cachedActiveAT)
-                    local atc = 0
-                    for uniqueKey, data in pairs(AT.trackedItems) do if AT.Frames[uniqueKey] and AT.Frames[uniqueKey]:IsShown() then atc = atc + 1; cachedActiveAT[atc] = AT.Frames[uniqueKey] end end
-                    
-                    table.sort(cachedActiveAT, SortByATDataId)
-                    for i = 1, atc do local f = cachedActiveAT[i]; f.isHijackedByEssential = true; r2c = r2c + 1; cachedR2[r2c] = f end
-                    if not AT._essentialInjectHooked then AT._essentialInjectHooked = true; hooksecurefunc(AT, "UpdateLayout", function() if E.db.WishFlex.cdManager.Essential.injectActionTimer then mod:TriggerLayout() end end) end
-                else if AT and AT.Frames then for _, f in pairs(AT.Frames) do f.isHijackedByEssential = false end end end
 
                 local w1, h1, gap = cfgE.row1Width, cfgE.row1Height, cfgE.iconGap
                 local totalW1 = (r1c * w1) + math.max(0, (r1c - 1) * gap)
@@ -637,31 +629,7 @@ function mod:UpdateAllLayouts()
                     f:SetSize(w2, h2)
                     if f.Icon then mod.ApplyTexCoord(f.Icon.Icon or f.Icon, w2, h2) end
                     
-                    if f.isHijackedByEssential then
-                        local cdSize, cdColor, cdX, cdY = cfgE.row2CdFontSize or 18, cfgE.row2CdFontColor or DEFAULT_CD_COLOR, cfgE.row2CdXOffset or 0, cfgE.row2CdYOffset or 0
-                        local fontPath = LSM:Fetch('font', db.countFont or "Expressway"); local outline = db.countFontOutline or "OUTLINE"
-
-                        local function FormatHijackCDText(t)
-                            if not t or type(t) ~= "table" or not t.SetFont then return end
-                            if t.FontTemplate then t:FontTemplate(fontPath, cdSize, outline) else t:SetFont(fontPath, cdSize, outline) end
-                            t:ClearAllPoints(); t:SetPoint("CENTER", f, "CENTER", cdX, cdY); t:SetTextColor(cdColor.r, cdColor.g, cdColor.b)
-                        end
-
-                        if f.Cooldown then
-                            if f.Cooldown.timer and f.Cooldown.timer.text then FormatHijackCDText(f.Cooldown.timer.text) end
-                            for k = 1, select("#", f.Cooldown:GetRegions()) do 
-                                local region = select(k, f.Cooldown:GetRegions())
-                                if region and region.IsObjectType and region:IsObjectType("FontString") then FormatHijackCDText(region) end 
-                            end
-                        end
-                        if f.Count then
-                            if f.Count.FontTemplate then f.Count:FontTemplate(fontPath, cdSize, outline) else f.Count:SetFont(fontPath, cdSize, outline) end
-                            f.Count:ClearAllPoints(); f.Count:SetPoint("CENTER", f, "CENTER", cdX, cdY)
-                        end
-                        self:ApplySwipeSettings(f)
-                    else
-                        SuppressDebuffBorder(f); self:ApplyText(f, "Essential", 2); self:ApplySwipeSettings(f)
-                    end
+                    SuppressDebuffBorder(f); self:ApplyText(f, "Essential", 2); self:ApplySwipeSettings(f)
                 end
             end
         end

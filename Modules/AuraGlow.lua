@@ -6,9 +6,6 @@ local mod = WUI:GetModule('AuraGlow', true) or WUI:NewModule('AuraGlow', 'AceHoo
 local LCG = E.Libs and E.Libs.CustomGlow
 if not LCG then LCG = LibStub and LibStub("LibCustomGlow-1.0", true) end
 
--- =========================================
--- [内存泄漏克星]：双引擎预分配静态池
--- =========================================
 local activeSkillFrames = {}
 local activeBuffFrames = {}
 local targetAuraCache = {}
@@ -24,9 +21,6 @@ local IconAnchor
 local ActiveIcons = {}
 local IconPool = {}
 
--- =========================================
--- 1. 初始化数据库
--- =========================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.auraGlow = true
 P["WishFlex"].auraGlow = {
@@ -48,11 +42,10 @@ P["WishFlex"].auraGlow = {
     },
 
     icon = {
-        enable = true, size = 36, spacing = 4, growth = "RIGHT", onlyCombat = false,
+        enable = true, width = 36, height = 36, spacing = 4, growth = "RIGHT", onlyCombat = false,
         anchorOffsetX = 0, anchorOffsetY = 20,
         textFont = "Expressway", textFontSize = 20, textFontOutline = "OUTLINE", textColor = {r = 1, g = 1, b = 1, a = 1},
-        textOffsetX = 0, textOffsetY = 0,
-        stackFontSize = 14, stackColor = {r = 1, g = 1, b = 1, a = 1}
+        textPosition = "CENTER", textOffsetX = 0, textOffsetY = 0
     },
 
     spells = {}
@@ -63,9 +56,12 @@ local ActiveGlows = {}
 mod.trackedAuras = {} 
 mod.manualTrackers = {} 
 
--- =========================================
--- 2. 核心防爆引擎
--- =========================================
+local function SafeHook(object, funcName, callback) 
+    if object and object[funcName] and type(object[funcName]) == "function" then 
+        hooksecurefunc(object, funcName, callback) 
+    end 
+end
+
 local function IsSafeValue(val)
     if val == nil then return false end
     if type(issecretvalue) == "function" and issecretvalue(val) then return false end
@@ -115,14 +111,28 @@ local function IsValidActiveAura(aura)
     return isValid
 end
 
+local function GetCropCoords(w, h)
+    local l, r, t, b = unpack(E.TexCoords)
+    if not w or not h or h == 0 or w == 0 then return l, r, t, b end
+    local ratio = w / h
+    if math.abs(ratio - 1) < 0.05 then return l, r, t, b end
+    if ratio > 1 then
+        local crop = (1 - (1/ratio)) / 2; return l, r, t + (b - t) * crop, b - (b - t) * crop
+    else
+        local crop = (1 - ratio) / 2; return l + (r - l) * crop, r - (r - l) * crop, t, b
+    end
+end
+
 function mod:BuildFastCache()
     wipe(mod.fastTrackedBuffs)
     if E.db.WishFlex and E.db.WishFlex.auraGlow and E.db.WishFlex.auraGlow.spells then
         for k, v in pairs(E.db.WishFlex.auraGlow.spells) do
-            local sid = tonumber(k)
-            local bid = (type(v) == "table" and v.buffID) or sid
-            if sid then mod.fastTrackedBuffs[sid] = true end
-            if bid then mod.fastTrackedBuffs[bid] = true end
+            if type(v) == "table" and v.class == E.myclass then
+                local sid = tonumber(k)
+                local bid = v.buffID or sid
+                if sid then mod.fastTrackedBuffs[sid] = true end
+                if bid then mod.fastTrackedBuffs[bid] = true end
+            end
         end
     end
 end
@@ -143,9 +153,6 @@ local function ShouldHideFrame(info)
     return false
 end
 
--- =========================================
--- 3. 渲染引擎 - 极简纯净排版监控 (进度条+图标)
--- =========================================
 local function GetMonitorDimensions()
     local db = E.db.WishFlex.auraGlow.monitor
     local w, h = db.width, db.height
@@ -158,6 +165,13 @@ local function GetMonitorDimensions()
         end
     end
     return w, h
+end
+
+local function GetTopmostResourceBar()
+    if _G.WishFlex_TertiaryBar and _G.WishFlex_TertiaryBar:IsShown() then return _G.WishFlex_TertiaryBar end
+    if _G.WishFlex_ClassBar and _G.WishFlex_ClassBar:IsShown() then return _G.WishFlex_ClassBar end
+    if _G.WishFlex_PowerBar and _G.WishFlex_PowerBar:IsShown() then return _G.WishFlex_PowerBar end
+    return _G.WishFlex_ClassResourceAnchor
 end
 
 local function UpdateSegments(bar, maxStacks)
@@ -242,21 +256,11 @@ local function GetOrCreateBar(index)
         
         local cd = CreateFrame("Cooldown", nil, statusBar, "CooldownFrameTemplate")
         cd:SetAllPoints()
-        cd:SetDrawSwipe(false)
-        cd:SetDrawEdge(false)
-        cd:SetDrawBling(false)
-        cd:SetHideCountdownNumbers(false)
-        cd.noCooldownOverride = true
-        cd.noOCC = true
-        cd.skipElvUICooldown = true
+        cd:SetDrawSwipe(false); cd:SetDrawEdge(false); cd:SetDrawBling(false); cd:SetHideCountdownNumbers(false)
+        cd.noCooldownOverride = true; cd.noOCC = true; cd.skipElvUICooldown = true
         bar.cd = cd
         
-        for _, region in pairs({cd:GetRegions()}) do
-            if region:IsObjectType("FontString") then
-                bar.durationText = region
-                break
-            end
-        end
+        for _, region in pairs({cd:GetRegions()}) do if region:IsObjectType("FontString") then bar.durationText = region; break end end
         if not bar.durationText then bar.durationText = cd:CreateFontString(nil, "OVERLAY") end
         
         BarPool[index] = bar
@@ -279,15 +283,13 @@ local function SyncIconTextVisuals(iconF)
         iconF.durationText:SetTextColor(tc.r, tc.g, tc.b, tc.a)
         iconF.lastR, iconF.lastG, iconF.lastB, iconF.lastA = tc.r, tc.g, tc.b, tc.a
     end
-    if iconF.lastOffsetX ~= cfg.textOffsetX or iconF.lastOffsetY ~= cfg.textOffsetY then
-        iconF.durationText:ClearAllPoints()
-        iconF.durationText:SetPoint("CENTER", iconF, "CENTER", cfg.textOffsetX, cfg.textOffsetY)
-        iconF.lastOffsetX, iconF.lastOffsetY = cfg.textOffsetX, cfg.textOffsetY
-    end
     
-    local sc = cfg.stackColor or {r=1, g=1, b=1, a=1}
-    iconF.countText:SetFont(fontPath, cfg.stackFontSize, cfg.textFontOutline)
-    iconF.countText:SetTextColor(sc.r, sc.g, sc.b, sc.a)
+    local pos = cfg.textPosition or "CENTER"
+    if iconF.lastPos ~= pos or iconF.lastOffsetX ~= cfg.textOffsetX or iconF.lastOffsetY ~= cfg.textOffsetY then
+        iconF.durationText:ClearAllPoints()
+        iconF.durationText:SetPoint(pos, iconF, pos, cfg.textOffsetX, cfg.textOffsetY)
+        iconF.lastPos, iconF.lastOffsetX, iconF.lastOffsetY = pos, cfg.textOffsetX, cfg.textOffsetY
+    end
 end
 
 local function GetOrCreateIcon(index)
@@ -297,7 +299,6 @@ local function GetOrCreateIcon(index)
         
         local tex = iconF:CreateTexture(nil, "ARTWORK")
         tex:SetInside(iconF)
-        tex:SetTexCoord(unpack(E.TexCoords))
         iconF.tex = tex
         
         local cd = CreateFrame("Cooldown", nil, iconF, "CooldownFrameTemplate")
@@ -308,10 +309,6 @@ local function GetOrCreateIcon(index)
         
         for _, region in pairs({cd:GetRegions()}) do if region:IsObjectType("FontString") then iconF.durationText = region; break end end
         if not iconF.durationText then iconF.durationText = cd:CreateFontString(nil, "OVERLAY") end
-        
-        local count = cd:CreateFontString(nil, "OVERLAY")
-        count:SetPoint("BOTTOMRIGHT", iconF, "BOTTOMRIGHT", -2, 2)
-        iconF.countText = count
         
         IconPool[index] = iconF
         SyncIconTextVisuals(iconF)
@@ -328,12 +325,14 @@ local function UpdateBarVisuals()
         
         local dbM = E.db.WishFlex.auraGlow.monitor
         MonitorAnchor:ClearAllPoints()
-        MonitorAnchor:SetPoint("BOTTOM", _G.WishFlex_ClassResourceAnchor, "TOP", dbM.anchorOffsetX or 0, dbM.anchorOffsetY or 1)
+        -- 【神级贴合】：动态吸附到 ClassResource 当前最高的一层条上
+        local refFrame = GetTopmostResourceBar()
+        MonitorAnchor:SetPoint("BOTTOM", refFrame, "TOP", dbM.anchorOffsetX or 0, dbM.anchorOffsetY or 1)
     end
     if IconAnchor then
         local iCfg = E.db.WishFlex.auraGlow.icon
-        IconAnchor:SetSize(iCfg.size, iCfg.size)
-        if IconAnchor.mover then IconAnchor.mover:SetSize(iCfg.size, iCfg.size) end
+        IconAnchor:SetSize(iCfg.width or 36, iCfg.height or 36)
+        if IconAnchor.mover then IconAnchor.mover:SetSize(iCfg.width or 36, iCfg.height or 36) end
     end
 end
 
@@ -349,21 +348,6 @@ local function BarOnUpdate(self)
         end
         SyncBarTextVisuals(self)
     end)
-end
-
--- =========================================
--- 4. 渲染引擎 - 冷却图标高亮
--- =========================================
-local function GetCropCoords(w, h)
-    local l, r, t, b = unpack(E.TexCoords)
-    if not w or not h or h == 0 or w == 0 then return l, r, t, b end
-    local ratio = w / h
-    if math.abs(ratio - 1) < 0.05 then return l, r, t, b end
-    if ratio > 1 then
-        local crop = (1 - (1/ratio)) / 2; return l, r, t + (b - t) * crop, b - (b - t) * crop
-    else
-        local crop = (1 - ratio) / 2; return l + (r - l) * crop, r - (r - l) * crop, t, b
-    end
 end
 
 local function GetHardcodedSize(parentFrame)
@@ -478,9 +462,6 @@ local function ClearIndependentGlow(spellID)
     end
 end
 
--- =========================================
--- 5. ★ 核心同步引擎 
--- =========================================
 function mod:UpdateGlows(forceUpdate)
     if not E.db.WishFlex.auraGlow.enable then return end
     if mod.isTestingMonitor then return end 
@@ -527,7 +508,7 @@ function mod:UpdateGlows(forceUpdate)
     local iCfg = E.db.WishFlex.auraGlow.icon
 
     for spellIDStr, spellData in pairs(E.db.WishFlex.auraGlow.spells) do
-        if not spellData.class or spellData.class == E.myclass then
+        if spellData.class == E.myclass then
             local spellID = tonumber(spellIDStr)
             local buffID = type(spellData) == "table" and spellData.buffID or tonumber(spellData)
             local customDuration = type(spellData) == "table" and spellData.duration or 0
@@ -672,7 +653,6 @@ function mod:UpdateGlows(forceUpdate)
                                 local maxS = spellData.maxStacks or 8
                                 pcall(function() bar.statusBar:SetMinMaxValues(0, maxS) end)
                                 
-                                -- 【完美防爆】：拦截任何形式的层数读取污染
                                 pcall(function()
                                     local st = (auraData and auraData.applications) or 1
                                     bar.statusBar:SetValue(st)
@@ -734,33 +714,23 @@ function mod:UpdateGlows(forceUpdate)
                     end
                 end
 
-                -- ====================== Pipeline 3: Icon ======================
+                -- ====================== Pipeline 3: Icon (Duration Only) ======================
                 if doIcon and iCfg.enable then
                     if iconValidCombat and (auraActive or alwaysShow) then
                         activeIconCount = activeIconCount + 1
                         local iconF = GetOrCreateIcon(activeIconCount)
                         
-                        iconF:SetSize(iCfg.size, iCfg.size)
+                        iconF:SetSize(iCfg.width, iCfg.height)
                         
                         local sInfo = C_Spell.GetSpellInfo(spellID)
                         if sInfo and sInfo.iconID then
                             iconF.tex:SetTexture(sInfo.iconID)
+                            iconF.tex:SetTexCoord(GetCropCoords(iCfg.width, iCfg.height))
                         end
                         
                         if auraActive then
                             iconF:SetAlpha(1)
                             iconF.tex:SetDesaturated(false)
-                            
-                            -- 【完美防爆】：拦截机密层数比较污染
-                            local stacksSuccess = pcall(function()
-                                local st = (auraData and auraData.applications) or 0
-                                if type(st) == "number" and st > 1 then
-                                    iconF.countText:SetText(st)
-                                else
-                                    iconF.countText:SetText("")
-                                end
-                            end)
-                            if not stacksSuccess then iconF.countText:SetText("") end
                             
                             local durObj = auraInstanceID and C_UnitAuras.GetAuraDuration(unit, auraInstanceID)
                             if durObj then
@@ -775,7 +745,6 @@ function mod:UpdateGlows(forceUpdate)
                         else
                             iconF:SetAlpha(0.4)
                             iconF.tex:SetDesaturated(true)
-                            iconF.countText:SetText("")
                             pcall(function() iconF.cd:Clear() end)
                             iconF.durationText:SetText("")
                             iconF:SetScript("OnUpdate", function(self) SyncIconTextVisuals(self) end)
@@ -814,17 +783,28 @@ function mod:UpdateGlows(forceUpdate)
             IconPool[i]:SetScript("OnUpdate", nil)
             pcall(function() IconPool[i].cd:Clear() end)
         end
-        for i = 1, activeIconCount do
-            local iconF = ActiveIcons[i]
-            iconF:ClearAllPoints()
-            if i == 1 then
-                iconF:SetPoint("CENTER", IconAnchor, "CENTER", 0, 0)
-            else
-                local prev = ActiveIcons[i-1]
-                if iCfg.growth == "RIGHT" then iconF:SetPoint("LEFT", prev, "RIGHT", iCfg.spacing, 0)
-                elseif iCfg.growth == "LEFT" then iconF:SetPoint("RIGHT", prev, "LEFT", -iCfg.spacing, 0)
-                elseif iCfg.growth == "UP" then iconF:SetPoint("BOTTOM", prev, "TOP", 0, iCfg.spacing)
-                else iconF:SetPoint("TOP", prev, "BOTTOM", 0, -iCfg.spacing) end
+        
+        if iCfg.growth == "CENTER_HORIZONTAL" then
+            local totalW = activeIconCount * iCfg.width + (activeIconCount - 1) * iCfg.spacing
+            local startX = -totalW / 2 + iCfg.width / 2
+            for i = 1, activeIconCount do
+                local iconF = ActiveIcons[i]
+                iconF:ClearAllPoints()
+                iconF:SetPoint("CENTER", IconAnchor, "CENTER", startX + (i - 1) * (iCfg.width + iCfg.spacing), 0)
+            end
+        else
+            for i = 1, activeIconCount do
+                local iconF = ActiveIcons[i]
+                iconF:ClearAllPoints()
+                if i == 1 then
+                    iconF:SetPoint("CENTER", IconAnchor, "CENTER", 0, 0)
+                else
+                    local prev = ActiveIcons[i-1]
+                    if iCfg.growth == "RIGHT" then iconF:SetPoint("LEFT", prev, "RIGHT", iCfg.spacing, 0)
+                    elseif iCfg.growth == "LEFT" then iconF:SetPoint("RIGHT", prev, "LEFT", -iCfg.spacing, 0)
+                    elseif iCfg.growth == "UP" then iconF:SetPoint("BOTTOM", prev, "TOP", 0, iCfg.spacing)
+                    else iconF:SetPoint("TOP", prev, "BOTTOM", 0, -iCfg.spacing) end
+                end
             end
         end
     end
@@ -848,30 +828,26 @@ function mod:UpdateGlows(forceUpdate)
     end
 end
 
--- =========================================
--- 6. 施法事件截获器
--- =========================================
 function mod:UNIT_SPELLCAST_SUCCEEDED(event, unit, castGUID, spellID)
     if unit ~= "player" then return end
     if not E.db.WishFlex.auraGlow.enable then return end
     
     local triggered = false
     for sIDStr, spellData in pairs(E.db.WishFlex.auraGlow.spells) do
-        local sID = tonumber(sIDStr)
-        local bID = type(spellData) == "table" and spellData.buffID or tonumber(spellData)
-        local dur = type(spellData) == "table" and spellData.duration or 0
-        if dur > 0 and (spellID == sID or spellID == bID) then
-            mod.manualTrackers = mod.manualTrackers or {}
-            mod.manualTrackers[bID] = { start = GetTime(), dur = dur }
-            triggered = true
+        if spellData.class == E.myclass then
+            local sID = tonumber(sIDStr)
+            local bID = type(spellData) == "table" and spellData.buffID or tonumber(spellData)
+            local dur = type(spellData) == "table" and spellData.duration or 0
+            if dur > 0 and (spellID == sID or spellID == bID) then
+                mod.manualTrackers = mod.manualTrackers or {}
+                mod.manualTrackers[bID] = { start = GetTime(), dur = dur }
+                triggered = true
+            end
         end
     end
     if triggered then mod:UpdateGlows() end
 end
 
--- =========================================
--- 7. 设置界面生成
--- =========================================
 local function ResolveSpellID(info)
     if not info then return nil end
     local base = info.spellID or 0
@@ -909,30 +885,39 @@ function mod:TestMonitor()
         local icfg = E.db.WishFlex.auraGlow.icon
         
         local icon1 = GetOrCreateIcon(1)
-        icon1:SetSize(icfg.size, icfg.size)
+        icon1:SetSize(icfg.width, icfg.height)
         icon1.tex:SetTexture(132225) 
+        icon1.tex:SetTexCoord(GetCropCoords(icfg.width, icfg.height))
         icon1.tex:SetDesaturated(false)
         icon1:SetAlpha(1)
-        icon1.countText:SetText("5")
         icon1.cd:Clear()
         icon1:SetScript("OnUpdate", function(self) SyncIconTextVisuals(self) end)
-        icon1:ClearAllPoints(); icon1:SetPoint("CENTER", IconAnchor, "CENTER", 0, 0); icon1:Show()
+        icon1:Show()
         
         local icon2 = GetOrCreateIcon(2)
-        icon2:SetSize(icfg.size, icfg.size)
+        icon2:SetSize(icfg.width, icfg.height)
         icon2.tex:SetTexture(132223)
+        icon2.tex:SetTexCoord(GetCropCoords(icfg.width, icfg.height))
         icon2.tex:SetDesaturated(false)
         icon2:SetAlpha(1)
-        icon2.countText:SetText("")
         icon2.cd:SetCooldown(GetTime(), 20)
         icon2:SetScript("OnUpdate", function(self) SyncIconTextVisuals(self) end)
-        icon2:ClearAllPoints()
-        local is = icfg.spacing or 4
-        if icfg.growth == "RIGHT" then icon2:SetPoint("LEFT", icon1, "RIGHT", is, 0)
-        elseif icfg.growth == "LEFT" then icon2:SetPoint("RIGHT", icon1, "LEFT", -is, 0)
-        elseif icfg.growth == "UP" then icon2:SetPoint("BOTTOM", icon1, "TOP", 0, is)
-        else icon2:SetPoint("TOP", icon1, "BOTTOM", 0, -is) end
         icon2:Show()
+        
+        if icfg.growth == "CENTER_HORIZONTAL" then
+            local totalW = 2 * icfg.width + icfg.spacing
+            local startX = -totalW / 2 + icfg.width / 2
+            icon1:ClearAllPoints(); icon1:SetPoint("CENTER", IconAnchor, "CENTER", startX, 0)
+            icon2:ClearAllPoints(); icon2:SetPoint("CENTER", IconAnchor, "CENTER", startX + icfg.width + icfg.spacing, 0)
+        else
+            icon1:ClearAllPoints(); icon1:SetPoint("CENTER", IconAnchor, "CENTER", 0, 0);
+            icon2:ClearAllPoints()
+            local is = icfg.spacing or 4
+            if icfg.growth == "RIGHT" then icon2:SetPoint("LEFT", icon1, "RIGHT", is, 0)
+            elseif icfg.growth == "LEFT" then icon2:SetPoint("RIGHT", icon1, "LEFT", -is, 0)
+            elseif icfg.growth == "UP" then icon2:SetPoint("BOTTOM", icon1, "TOP", 0, is)
+            else icon2:SetPoint("TOP", icon1, "BOTTOM", 0, -is) end
+        end
     end
     
     C_Timer.After(5, function()
@@ -949,13 +934,13 @@ local function InjectOptions()
     
     local args = WUI.OptionsArgs.cdmanager.args
     args.auraglow = {
-        order = 7, type = "group", name = "高亮与进度条监控", childGroups = "tab",
+        order = 7, type = "group", name = "BUFF监控", childGroups = "tab",
         args = {
             spellTab = {
                 order = 1, type = "group", name = "法术管理核心",
                 args = {
                     enable = { order = 1, type = "toggle", name = "全局启用模块", get = function() return E.db.WishFlex.auraGlow.enable end, set = function(_,v) E.db.WishFlex.auraGlow.enable=v; mod:UpdateGlows(true) end },
-                    desc = { order = 3, type = "description", name = "|cff00ffcc纯净原生引擎：|r\n直接继承高亮发光的底层安全逻辑，0报错纯净排版。\n所有配置已自动过滤，仅显示当前角色的增益效果！\n" },
+                    desc = { order = 3, type = "description", name = "|cff00ffcc纯净原生引擎：\n所有配置已自动过滤，仅显示当前角色的增益效果！\n" },
                     spellManagement = {
                         order = 4, type = "group", name = "当前角色技能管理", guiInline = true,
                         args = {
@@ -1047,7 +1032,7 @@ local function InjectOptions()
                                 values = function() 
                                     local vals = {} 
                                     for k, v in pairs(E.db.WishFlex.auraGlow.spells) do 
-                                        if not v.class or v.class == E.myclass then
+                                        if v.class == E.myclass then
                                             local id = tonumber(k)
                                             local name = C_Spell.GetSpellName(id) or "未知技能"
                                             vals[k] = name .. " (" .. k .. ")"
@@ -1065,12 +1050,12 @@ local function InjectOptions()
                             
                             separator2 = { order = 6, type = "header", name = "【专属监控】选项 (进度条/图标)" },
                             monitorEnable = { order = 7, type = "toggle", name = "生成进度条", get = function() local d = mod.selectedSpell and E.db.WishFlex.auraGlow.spells[mod.selectedSpell]; return type(d)=="table" and (d.monitorEnable == true) or false end, set = function(_,v) if mod.selectedSpell then E.db.WishFlex.auraGlow.spells[mod.selectedSpell].monitorEnable=v; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
-                            iconEnable = { order = 7.5, type = "toggle", name = "生成独立图标", get = function() local d = mod.selectedSpell and E.db.WishFlex.auraGlow.spells[mod.selectedSpell]; return type(d)=="table" and (d.iconEnable == true) or false end, set = function(_,v) if mod.selectedSpell then E.db.WishFlex.auraGlow.spells[mod.selectedSpell].iconEnable=v; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
+                            iconEnable = { order = 7.5, type = "toggle", name = "生成独立图标(纯净倒数版)", get = function() local d = mod.selectedSpell and E.db.WishFlex.auraGlow.spells[mod.selectedSpell]; return type(d)=="table" and (d.iconEnable == true) or false end, set = function(_,v) if mod.selectedSpell then E.db.WishFlex.auraGlow.spells[mod.selectedSpell].iconEnable=v; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
                             
                             alwaysShow = { order = 7.6, type = "toggle", name = "常驻显示(无Buff时半透明占位)", desc = "开启后，即使你身上没有这个Buff，监控条和图标也会以半透明的去色状态固定显示在屏幕上。", get = function() local d = mod.selectedSpell and E.db.WishFlex.auraGlow.spells[mod.selectedSpell]; return type(d)=="table" and (d.alwaysShow == true) or false end, set = function(_,v) if mod.selectedSpell then E.db.WishFlex.auraGlow.spells[mod.selectedSpell].alwaysShow=v; mod:UpdateGlows(true) end end, disabled = function() local d = mod.selectedSpell and E.db.WishFlex.auraGlow.spells[mod.selectedSpell]; return not d or not (d.monitorEnable or d.iconEnable) end },
                             
                             monitorMode = { 
-                                order = 8, type = "select", name = "监控逻辑模式", 
+                                order = 8, type = "select", name = "进度条逻辑模式", 
                                 values = { 
                                     time = "持续时间 (如: 爆燃、天神下凡)", 
                                     stack_build = "层数获取: 从0到满 (如: 冰刺)",
@@ -1124,11 +1109,11 @@ local function InjectOptions()
                 }
             },
             monitorTab = {
-                order = 3, type = "group", name = "能量条全局排版",
+                order = 3, type = "group", name = "进度条全局排版",
                 get = function(info) return E.db.WishFlex.auraGlow.monitor[info[#info]] end,
                 set = function(info, v) E.db.WishFlex.auraGlow.monitor[info[#info]] = v; UpdateBarVisuals(); mod:UpdateGlows(true) end,
                 args = {
-                    enable = { order = 1, type = "toggle", name = "全局启用能量条" },
+                    enable = { order = 1, type = "toggle", name = "全局启用" },
                     alignWithClassResource = { order = 1.5, type = "toggle", name = "尺寸对齐职业资源条", desc = "开启后自动读取 ClassResource 的动态宽度和高度，完全融为一体！" },
                     onlyCombat = { order = 2, type = "toggle", name = "仅战斗/有目标时显示" },
                     testMode = { order = 3, type = "execute", name = "测试排版(5秒)", desc = "点击强行显示演示条，用 /ec 移动【WishFlex: 增益监控条】", func = function() mod:TestMonitor() end },
@@ -1148,7 +1133,7 @@ local function InjectOptions()
                     },
                     
                     textGroup = {
-                        order = 6, type = "group", name = "倒数文本设置", guiInline = true,
+                        order = 6, type = "group", name = "冷却文本", guiInline = true,
                         args = {
                             textFont = { order = 1, type = "select", dialogControl = 'LSM30_Font', name = "文本字体", values = LSM:HashTable("font") },
                             textFontSize = { order = 2, type = "range", name = "字体大小", min = 8, max = 64, step = 1 },
@@ -1162,38 +1147,36 @@ local function InjectOptions()
                 }
             },
             iconTab = {
-                order = 4, type = "group", name = "独立图标全局排版",
+                order = 4, type = "group", name = "BUFF图标全局排版",
                 get = function(info) return E.db.WishFlex.auraGlow.icon[info[#info]] end,
                 set = function(info, v) E.db.WishFlex.auraGlow.icon[info[#info]] = v; UpdateBarVisuals(); mod:UpdateGlows(true) end,
                 args = {
-                    enable = { order = 1, type = "toggle", name = "全局启用独立图标" },
+                    enable = { order = 1, type = "toggle", name = "启用" },
                     onlyCombat = { order = 2, type = "toggle", name = "仅战斗/有目标时显示" },
                     spacer = { order = 3, type = "description", name = " " },
                     
                     layoutGroup = {
                         order = 4, type = "group", name = "排版与尺寸", guiInline = true,
                         args = {
-                            size = { order = 1, type = "range", name = "图标大小", min = 10, max = 100, step = 1 },
+                            width = { order = 1, type = "range", name = "独立宽度", min = 10, max = 150, step = 1 },
+                            height = { order = 1.5, type = "range", name = "独立高度", min = 10, max = 150, step = 1 },
                             spacing = { order = 2, type = "range", name = "图标间距", min = 0, max = 50, step = 1 },
-                            growth = { order = 3, type = "select", name = "增长方向", values = { UP = "向上", DOWN = "向下", LEFT = "向左", RIGHT = "向右" } },
+                            growth = { order = 3, type = "select", name = "增长方向", values = { UP = "向上", DOWN = "向下", LEFT = "向左", RIGHT = "向右", CENTER_HORIZONTAL = "水平居中展开" } },
                             anchorOffsetX = { order = 4, type = "range", name = "整体 X 轴偏移", min = -500, max = 500, step = 1 },
                             anchorOffsetY = { order = 5, type = "range", name = "整体 Y 轴偏移", min = -500, max = 500, step = 1 },
                         }
                     },
                     
                     textGroup = {
-                        order = 5, type = "group", name = "倒数与层数文本设置", guiInline = true,
+                        order = 5, type = "group", name = "冷却文本设置", guiInline = true,
                         args = {
-                            textFont = { order = 1, type = "select", dialogControl = 'LSM30_Font', name = "全局字体", values = LSM:HashTable("font") },
-                            textFontOutline = { order = 2, type = "select", name = "全局字体描边", values = { NONE = "无", OUTLINE = "细描边", MONOCHROMEOUTLINE = "单色描边", THICKOUTLINE = "粗描边" } },
-                            separator = { order = 3, type = "header", name = "倒数时间(固定居中)" },
+                            textFont = { order = 1, type = "select", dialogControl = 'LSM30_Font', name = "字体", values = LSM:HashTable("font") },
+                            textFontOutline = { order = 2, type = "select", name = "字体描边", values = { NONE = "无", OUTLINE = "细描边", MONOCHROMEOUTLINE = "单色描边", THICKOUTLINE = "粗描边" } },
                             textFontSize = { order = 4, type = "range", name = "时间字体大小", min = 8, max = 64, step = 1 },
                             textColor = { order = 5, type = "color", name = "时间颜色", hasAlpha = true, get = function() local c = E.db.WishFlex.auraGlow.icon.textColor; return c.r, c.g, c.b, c.a end, set = function(_, r, g, b, a) E.db.WishFlex.auraGlow.icon.textColor = {r=r, g=g, b=b, a=a}; mod:UpdateGlows(true) end },
+                            textPosition = { order = 5.5, type = "select", name = "文本九宫格位置", values = { TOPLEFT="左上", TOP="正上", TOPRIGHT="右上", LEFT="左侧", CENTER="居中", RIGHT="右侧", BOTTOMLEFT="左下", BOTTOM="正下", BOTTOMRIGHT="右下" } },
                             textOffsetX = { order = 6, type = "range", name = "时间 X 轴偏移", min = -50, max = 50, step = 1 },
                             textOffsetY = { order = 7, type = "range", name = "时间 Y 轴偏移", min = -50, max = 50, step = 1 },
-                            separator2 = { order = 8, type = "header", name = "层数设置(固定右下)" },
-                            stackFontSize = { order = 9, type = "range", name = "层数字体大小", min = 8, max = 64, step = 1 },
-                            stackColor = { order = 10, type = "color", name = "层数颜色", hasAlpha = true, get = function() local c = E.db.WishFlex.auraGlow.icon.stackColor; return c.r, c.g, c.b, c.a end, set = function(_, r, g, b, a) E.db.WishFlex.auraGlow.icon.stackColor = {r=r, g=g, b=b, a=a}; mod:UpdateGlows(true) end },
                         }
                     }
                 }
@@ -1202,9 +1185,7 @@ local function InjectOptions()
     }
 end
 
--- =========================================
--- 8. 静默钩子与节流防抖
--- =========================================
+
 local function HookBuffHide()
     local function HideIt(frame)
         if not E.db.WishFlex.auraGlow.enable or not frame.cooldownInfo then return end
@@ -1228,14 +1209,10 @@ local function RequestUpdateGlows()
     updatePending = true
     C_Timer.After(InCombatLockdown() and 0.08 or 0.3, function() updatePending = false; mod:UpdateGlows() end)
 end
-local function SafeHook(object, funcName, callback) if object and object[funcName] and type(object[funcName]) == "function" then hooksecurefunc(object, funcName, callback) end end
 
 function mod:UNIT_AURA(event, unit) if not InCombatLockdown() and unit ~= "player" then return end; if unit == "player" or unit == "target" then RequestUpdateGlows() end end
 function mod:OnCombatEvent() RequestUpdateGlows() end
 
--- =========================================
--- 9. 初始化与数据清洗
--- =========================================
 function mod:Initialize()
     if E.db.WishFlex and E.db.WishFlex.auraGlow and E.db.WishFlex.auraGlow.spells then
         local cleanSpells = {}
@@ -1248,7 +1225,8 @@ function mod:Initialize()
                     glowEnable = v.glowEnable ~= false, monitorEnable = v.monitorEnable or false,
                     iconEnable = v.iconEnable or false, alwaysShow = v.alwaysShow or false,
                     monitorMode = v.monitorMode or "time", maxStacks = v.maxStacks or 5, barColor = v.barColor or {r=0,g=0.8,b=1,a=1},
-                    barBgColor = v.barBgColor or {r=0.2,g=0.2,b=0.2,a=0.8}, class = v.class
+                    barBgColor = v.barBgColor or {r=0.2,g=0.2,b=0.2,a=0.8}, 
+                    class = v.class or E.myclass
                 }
             end
         end
@@ -1274,12 +1252,17 @@ function mod:Initialize()
     
     IconAnchor = CreateFrame("Frame", "WishFlexAuraIconAnchor", E.UIParent)
     local icfg = E.db.WishFlex.auraGlow.icon
-    IconAnchor:SetSize(icfg.size, icfg.size)
+    IconAnchor:SetSize(icfg.width or 36, icfg.height or 36)
     IconAnchor:ClearAllPoints()
     IconAnchor:SetPoint("BOTTOM", MonitorAnchor, "TOP", icfg.anchorOffsetX or 0, icfg.anchorOffsetY or 20)
     E:CreateMover(IconAnchor, "WishFlexAuraIconMover", "WishFlex: 增益监控图标", nil, nil, nil, "ALL,WISHFLEX")
     
     UpdateBarVisuals()
+    
+    local CR_Mod = WUI:GetModule('ClassResource', true)
+    if CR_Mod then
+        SafeHook(CR_Mod, "UpdateLayout", function() UpdateBarVisuals() end)
+    end
 
     self:RegisterEvent("UNIT_AURA")
     self:RegisterEvent("PLAYER_TARGET_CHANGED", "OnCombatEvent")
@@ -1288,7 +1271,8 @@ function mod:Initialize()
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
     
     HookBuffHide()
-    local viewers = { _G.BuffIconCooldownViewer, _G.EssentialCooldownViewer, _G.UtilityCooldownViewer, _G.BuffBarCooldownViewer }
+    
+    local viewers = { _G.BuffIconCooldownViewer, _G.BuffBarCooldownViewer }
     for _, viewer in ipairs(viewers) do
         if viewer then
             SafeHook(viewer, "RefreshData", RequestUpdateGlows); SafeHook(viewer, "UpdateLayout", RequestUpdateGlows); SafeHook(viewer, "Layout", RequestUpdateGlows)

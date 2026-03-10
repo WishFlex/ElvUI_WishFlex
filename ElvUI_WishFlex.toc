@@ -17,7 +17,6 @@ Modules\StripeSkin.lua
 Modules\LustMonitor.lua
 Modules\CooldownCustom.lua
 Modules\ClassResource.lua
-Modules\ActionTimer.lua
 Modules\Narrative.lua
 Modules\CooldownTracker.lua
 Modules\WishTargetAlert.lua
