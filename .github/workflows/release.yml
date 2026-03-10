@@ -8,7 +8,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # ⬇️ 关键：增加下面这两行权限配置
     permissions:
       contents: write
     
@@ -20,5 +19,7 @@ jobs:
 
       - name: Package and Create GitHub Release
         uses: BigWigsMods/packager@v2
+        with:
+          args: -n  # 这样压缩包里就不会再出现自动生成的 CHANGELOG.md 了
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
