@@ -5,4 +5,7 @@ ignore:
   - .gitattributes
   - .pkgmeta
   - README.md
-  - CHANGELOG.md  
+  - CHANGELOG.md
+  - changelog.md
+  - CHANGELOG
+  - changelog
