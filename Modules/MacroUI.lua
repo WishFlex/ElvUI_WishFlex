@@ -5,12 +5,11 @@ local MR = WUI:NewModule('macroui', 'AceEvent-3.0', 'AceHook-3.0')
 local S = E:GetModule('Skins')
 local LCG = E.Libs.CustomGlow
 
--- 默认设置注册
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.macroui = true
 P["WishFlex"].macroui_width = 680
 P["WishFlex"].macroui_height = 750
-P["WishFlex"].macroui_glow = "pixel"   -- 默认发光特效为像素发光
+P["WishFlex"].macroui_glow = "pixel" 
 
 local addonName = "MacroFrameEnhancer"
 local addon = CreateFrame("Frame")
@@ -22,8 +21,6 @@ local function InjectOptions()
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 21, type = "group", name = "|cff00e5cc小工具|r", childGroups = "tab", args = {} }
     
     WUI.OptionsArgs.widgets.args.general = WUI.OptionsArgs.widgets.args.general or { order = 1, type = "group", name = "宏界面", args = {} }
-    
-    -- 宏界面专属设置组
     WUI.OptionsArgs.widgets.args.general.args.macroGroup = {
         order = 2,
         type = "group",
@@ -43,7 +40,7 @@ local function InjectOptions()
                 order = 2,
                 type = "range",
                 name = "界面宽度",
-                min = 600, max = 1200, step = 10, -- ★ 最小值锁定为 600
+                min = 600, max = 1200, step = 10, 
                 get = function() return E.db.WishFlex.macroui_width end,
                 set = function(_, v) E.db.WishFlex.macroui_width = v; addon:UpdateLayout() end
             },
@@ -51,7 +48,7 @@ local function InjectOptions()
                 order = 3,
                 type = "range",
                 name = "界面高度",
-                min = 500, max = 1200, step = 10, -- ★ 顺便给高度也加了安全底线 500
+                min = 500, max = 1200, step = 10, 
                 get = function() return E.db.WishFlex.macroui_height end,
                 set = function(_, v) E.db.WishFlex.macroui_height = v; addon:UpdateLayout() end
             },
@@ -60,9 +57,9 @@ local function InjectOptions()
                 type = "select",
                 name = "新建宏高亮",
                 values = {
-                    ["pixel"] = "像素细边框 (Pixel)",
-                    ["autocast"] = "闪烁四角 (AutoCast)",
-                    ["button"] = "标准按钮发光 (Button)"
+                    ["pixel"] = "像素发光",
+                    ["autocast"] = "闪烁发光 (AutoCast)",
+                    ["button"] = "按钮发光 (Button)"
                 },
                 get = function() return E.db.WishFlex.macroui_glow end,
                 set = function(_, v) 
@@ -156,12 +153,9 @@ function addon:CreateSearchBox()
     self.SearchBox = searchBox
 end
 
--- 布局刷新核心函数：所有的强制对齐都在这里
 function addon:UpdateLayout()
     if not MacroFrame then return end
     local db = E.db.WishFlex
-
-    -- ★ 底层逻辑锁死：强行取设置宽度和600之间的最大值，防止旧配置污染
     local safeWidth = math.max(600, db.macroui_width)
     local safeHeight = math.max(500, db.macroui_height)
 
@@ -169,34 +163,26 @@ function addon:UpdateLayout()
     MacroFrame:SetHeight(safeHeight)
 
     local insetX = 20
-    local visualFixX = 4 -- 视觉偏移修正：向内微缩4像素来抵消ElvUI输入框的材质外扩
+    local visualFixX = 4 
 
-    -- 1. 搜索框 (加上内缩修正)
     if self.SearchBox then
         self.SearchBox:ClearAllPoints()
         self.SearchBox:SetPoint("TOPLEFT", MacroFrame, "TOPLEFT", insetX + visualFixX, -35)
         self.SearchBox:SetPoint("TOPRIGHT", MacroFrame, "TOPRIGHT", -(insetX + visualFixX), -35)
         self.SearchBox:SetHeight(25)
     end
-
-    -- 2. 标签页 (主边缘基准线)
     if MacroFrameTab1 and MacroFrameTab2 then
         MacroFrameTab1:ClearAllPoints()
         MacroFrameTab1:SetPoint("TOPLEFT", MacroFrame, "TOPLEFT", insetX, -70)
     end
-
-    -- 3. 宏图标网格区 (强绑定主边缘基准线)
     if MacroFrame.MacroSelector then
         MacroFrame.MacroSelector:ClearAllPoints()
         MacroFrame.MacroSelector:SetPoint("TOPLEFT", MacroFrameTab1, "BOTTOMLEFT", 0, -5)
         MacroFrame.MacroSelector:SetPoint("RIGHT", MacroFrame, "RIGHT", -insetX, 0)
         MacroFrame.MacroSelector:SetHeight(280)
-        
-        -- 全自动计算列数填充
         if MacroFrame.MacroSelector.ScrollBox then
             local view = MacroFrame.MacroSelector.ScrollBox:GetView()
             if view and view.SetStride then
-                -- ★ 使用安全宽度来计算列数
                 local availableWidth = safeWidth - (insetX * 2)
                 local columns = math.max(6, math.floor(availableWidth / 44))
                 view:SetStride(columns)
@@ -207,7 +193,6 @@ function addon:UpdateLayout()
         end
     end
 
-    -- 4. 选中宏：图标、名称、改变按钮同行对齐
     if MacroFrameSelectedMacroButton then
         MacroFrameSelectedMacroButton:ClearAllPoints()
         MacroFrameSelectedMacroButton:SetPoint("TOPLEFT", MacroFrame.MacroSelector, "BOTTOMLEFT", 0, -15)
@@ -235,7 +220,6 @@ function addon:UpdateLayout()
         MacroCancelButton:SetPoint("LEFT", MacroSaveButton, "RIGHT", 10, 0)
     end
 
-    -- 5. 编辑宏内容文本框 (强绑定主边缘基准线)
     if MacroFrameTextBackground then
         MacroFrameTextBackground:ClearAllPoints()
         MacroFrameTextBackground:SetPoint("TOPLEFT", MacroFrameSelectedMacroButton, "BOTTOMLEFT", 0, -15)
@@ -245,8 +229,6 @@ function addon:UpdateLayout()
     if MacroFrameSelectedMacroBackground then
         MacroFrameSelectedMacroBackground:SetAlpha(0)
     end
-
-    -- 彻底干掉“输入宏指令”文本
     if MacroFrameEnterMacroText then
         MacroFrameEnterMacroText:SetText("")
         MacroFrameEnterMacroText:SetAlpha(0)
@@ -262,8 +244,6 @@ function addon:UpdateLayout()
         MacroFrameCharLimitText:ClearAllPoints()
         MacroFrameCharLimitText:SetPoint("BOTTOM", MacroFrameTextBackground, "BOTTOM", 0, -15)
     end
-
-    -- 6. 底部按钮 (强绑定主边缘基准线)
     if MacroDeleteButton then
         MacroDeleteButton:ClearAllPoints()
         MacroDeleteButton:SetPoint("BOTTOMLEFT", MacroFrame, "BOTTOMLEFT", insetX, 15)

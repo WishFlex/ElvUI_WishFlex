@@ -2,17 +2,10 @@ local ElvUI = _G.ElvUI
 local E, L, V, P, G = unpack(ElvUI)
 local MOD = E:NewModule('WishFlex_SpellAlpha', 'AceEvent-3.0')
 local WUI = E:GetModule('WishFlex')
-
--- =====================================================================
--- 1. 默认数据库注入
--- =====================================================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.spellAlpha = true
 P["WishFlex"].spellAlpha = { enable = true, globalAlpha = 0.3, specs = {} }
 
--- =====================================================================
--- 2. 设置面板注入 (挂载到 SmartHide 的组内)
--- =====================================================================
 local function GetSpellAlphaSpecOptions()
     local specArgs = {
         global = { 
@@ -47,14 +40,10 @@ end
 
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
-    -- 统一父节点名称
     WUI.OptionsArgs.smarthide = WUI.OptionsArgs.smarthide or { order = 10, type = "group", name = "|cff00ffcc智能隐藏|r", childGroups = "tab", args = {} }
     WUI.OptionsArgs.smarthide.args.spellAlpha = { order = 4, type = "group", name = "法术透明度", args = GetSpellAlphaSpecOptions() }
 end
 
--- =====================================================================
--- 3. 核心功能逻辑
--- =====================================================================
 function MOD:Update()
     if not E.db.WishFlex.spellAlpha.enable then 
         SpellActivationOverlayFrame:SetAlpha(1)

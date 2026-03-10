@@ -3,10 +3,6 @@ local E, L, V, P, G = unpack(ElvUI)
 local WUI = E:GetModule('WishFlex')
 local CA = WUI:NewModule('CombatAlert', 'AceEvent-3.0')
 local LSM = E.Libs.LSM
-
--- =====================================================================
--- 1. 默认数据库
--- =====================================================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.combatAlert = true
 P["WishFlex"].combatAlert = {
@@ -17,9 +13,6 @@ P["WishFlex"].combatAlert = {
     leaveText = "脱离战斗"
 }
 
--- =====================================================================
--- 2. 设置面板注入
--- =====================================================================
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 21, type = "group", name = "|cff00e5cc小工具|r", childGroups = "tab", args = {} }
@@ -59,41 +52,29 @@ local function InjectOptions()
     }
 end
 
--- =====================================================================
--- 3. 核心酷炫动画引擎 (上滑淡出式)
--- =====================================================================
 function CA:CreateFrame()
     if self.frame then return end
     self.frame = CreateFrame("Frame", "WishFlex_CombatAlertFrame", E.UIParent)
     self.frame:SetSize(400, 80)
     self.frame:SetPoint("TOP", E.UIParent, "TOP", 0, -250)
     E:CreateMover(self.frame, "WishFlex_CombatAlertMover", "WishFlex: 进退战提示", nil, nil, nil, "ALL,WishFlex")
-
     self.text = self.frame:CreateFontString(nil, "OVERLAY")
     self.text:SetPoint("CENTER", self.frame, "CENTER")
-
-    -- 挂载魔兽官方自带的 AnimationGroup 系统
     self.animGroup = self.text:CreateAnimationGroup()
-
-    -- 阶段 1：快速淡入
     local fadeIn = self.animGroup:CreateAnimation("Alpha")
     fadeIn:SetFromAlpha(0); fadeIn:SetToAlpha(1)
     fadeIn:SetDuration(0.3); fadeIn:SetOrder(1)
-
-    -- 阶段 2：屏幕中央停留
     local hold = self.animGroup:CreateAnimation("Alpha")
     hold:SetFromAlpha(1); hold:SetToAlpha(1)
     hold:SetDuration(1.0); hold:SetOrder(2)
-
-    -- 阶段 3：往上滑动的同时渐渐淡出
     local fadeOut = self.animGroup:CreateAnimation("Alpha")
     fadeOut:SetFromAlpha(1); fadeOut:SetToAlpha(0)
     fadeOut:SetDuration(0.5); fadeOut:SetOrder(3)
 
     local slideUp = self.animGroup:CreateAnimation("Translation")
-    slideUp:SetOffset(0, 40) -- 向上滑动 40 像素
+    slideUp:SetOffset(0, 40)
     slideUp:SetDuration(0.5); slideUp:SetOrder(3)
-    slideUp:SetSmoothing("OUT") -- 缓动曲线，让滑动更平滑
+    slideUp:SetSmoothing("OUT")
 
     self.animGroup:SetScript("OnFinished", function() self.text:SetAlpha(0) end)
     self.text:SetAlpha(0)

@@ -27,10 +27,7 @@ function CS:SaveChatToTemplate()
     local count = 0
 
     for i = 1, NUM_CHAT_WINDOWS do
-        -- 获取第 7 和 9 个返回值，分别代表 shown(显示) 和 docked(已停靠)
         local name, fontSize, _, _, _, _, shown, _, docked = GetChatWindowInfo(i)
-        
-        -- 核心修复：只记录正在使用（显示或停靠）的窗口，彻底过滤掉暴雪隐藏的“僵尸窗口”
         if name and name ~= "" and (shown or docked or i == 1 or i == 2) then
             template[i] = {
                 name = name,
@@ -75,7 +72,6 @@ function CS:SetupChat()
             end
             FCF_SetChatWindowFontSize(nil, frame, data.fontSize or 12)
         else
-            -- 如果模板里没有这个窗口（比如语音聊天），强行关闭、取消停靠、隐藏标签！
             if i > 2 then
                 FCF_SetWindowName(frame, "")
                 ChatFrame_RemoveAllMessageGroups(frame)

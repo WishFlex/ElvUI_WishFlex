@@ -46,7 +46,6 @@ local function InjectOptions()
     }
 end
 
--- 全局宿主容器
 local WishBuffHost = CreateFrame("Frame", "WishBuffHost", UIParent)
 local WishDebuffHost = CreateFrame("Frame", "WishDebuffHost", UIParent)
 local WishBarPetHost = CreateFrame("Frame", "WishBarPetHost", UIParent)
@@ -64,13 +63,9 @@ local FRAME_CATEGORIES = {
     ["ElvUF_Player"] = { cat = "unitframe", isPlayerOnly = true },
     ["ElvUF_Pet"] = { cat = "unitframe", isPlayerOnly = true, requirePet = true }, 
     ["ElvUF_Target"] = { cat = "unitframe", isPlayerOnly = false },
-
-    -- 保护框体组：使用宿主容器避免报错
     ["ElvUIPlayerBuffs"] = { cat = "buffs", isSpecialHost = "WishBuffHost" },
     ["ElvUIPlayerDebuffs"] = { cat = "buffs", isSpecialHost = "WishDebuffHost" },
     ["ElvUI_BarPet"] = { cat = "actionbar", isSpecialHost = "WishBarPetHost" },
-    
-    -- 资源条与冷却管理器：移入宿主容器，利用透明度屏蔽闪现
     ["WishFlex_ClassBar"] = { cat = "classResource", isSpecialHost = "WishClassResourceHost" },
     ["WishFlex_PowerBar"] = { cat = "classResource", isSpecialHost = "WishClassResourceHost" },
     ["WishFlex_TertiaryBar"] = { cat = "classResource", isSpecialHost = "WishClassResourceHost" },
@@ -80,19 +75,14 @@ local FRAME_CATEGORIES = {
     ["UtilityCooldownViewer"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
     ["WishFlex_CooldownRow2_Anchor"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
     ["WishFlex_ActionTimer_Anchor"] = { cat = "actionTimer", isSpecialHost = "WishActionTimerHost" },
-
-    -- 【关键修复】：将增益图标与增益条也列装宿主容器
     ["BuffIconCooldownViewer"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
     ["BuffBarCooldownViewer"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
-
-    -- 非保护框体组：直接安全使用 Show/Hide
     ["DamageMeterSessionWindow1"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true },
     ["DamageMeterSessionWindow2"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true },
     ["DamageMeterSessionWindow3"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true },
     ["DamageMeter"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true }
 }
 
--- 【性能核心修复1/2】：提取高频轮询所需的小地图框架与玩家框体组件为全局静态数组
 local MINIMAP_FRAMES = { "MinimapCluster", "Minimap", "MinimapBackdrop", "MinimapPanel", "MMHolder" }
 local PLAYER_UF_ELEMENTS = {
     "Health", "Power", "Portrait", "InfoPanel", "AuraBars", 
@@ -169,8 +159,6 @@ local function IsPlayerFlying() return type(IsFlying) == "function" and IsFlying
 
 function SH:UpdateMinimap(show)
     local targetAlpha = show and 1 or 0
-    
-    -- 【性能核心修复1/2应用】：不再动态创建表，直接遍历静态名称数组
     for i = 1, #MINIMAP_FRAMES do
         local f = _G[MINIMAP_FRAMES[i]]
         if f then
@@ -262,8 +250,6 @@ function SH:UpdateVisibility()
                     f.SmartHideTargetAlpha = 1
                     f:SetAlpha(1) 
                 end
-                
-                -- 【性能核心修复2/2应用】：不再每次循环新建表，直接读取静态表 PLAYER_UF_ELEMENTS
                 for i = 1, #PLAYER_UF_ELEMENTS do
                     local el = f[PLAYER_UF_ELEMENTS[i]]
                     if el and type(el) == "table" and el.SetAlpha then 

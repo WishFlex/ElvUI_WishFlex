@@ -100,30 +100,22 @@ function KB:ApplyBindings()
     if type(template) ~= "table" or not next(template) then
         E:Print("|cff00ffccWishFlex:|r |cffff0000数据库为空！请先去原角色记录。|r") return
     end
-
-    -- 移除废弃的 SetCurrentBindingSet，保留正确的读取/写入 API
     if LoadBindings then LoadBindings(2) end
 
     local currentCustomKey = GetBindingKey("CLICK WishFlex_ToggleBarsButton:LeftButton")
     local allCommands = GetAllCommands()
-
-    -- 1. 解绑旧按键
     for command in pairs(allCommands) do
         local keys = { GetBindingKey(command) }
         for _, key in ipairs(keys) do SetBinding(key, nil) end
     end
-
-    -- 2. 应用新按键
     for command, keys in pairs(template) do
         for _, key in ipairs(keys) do SetBinding(key, command) end
     end
     
     if currentCustomKey then SetBinding(currentCustomKey, "CLICK WishFlex_ToggleBarsButton:LeftButton") end
-    
-    -- 保存为角色专用按键
+
     SaveBindings(2)
 
-    -- 3. 强制刷新 ElvUI
     local AB = E:GetModule('ActionBars')
     if AB and AB.UpdateButtonBindings and AB.handledbuttons then
         for buttonFrame, _ in pairs(AB.handledbuttons) do

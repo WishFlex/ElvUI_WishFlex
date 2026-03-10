@@ -3,12 +3,10 @@ local E, L, V, P, G = unpack(ElvUI)
 local WUI = E:GetModule('WishFlex')
 local VB = WUI:NewModule('VehicleBar', 'AceEvent-3.0')
 
--- [1. 默认数据库]
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.vehiclebar = true
 P["WishFlex"].vehiclebar = { width = 40, height = 40, spacing = 6, fontSize = 12 }
 
--- [2. 设置面板注入]
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 21, type = "group", name = "|cff00e5cc小工具|r", childGroups = "tab", args = {} }
@@ -25,7 +23,7 @@ local function InjectOptions()
     }
 end
 
--- [3. 核心逻辑]
+
 function VB:UpdateLayout()
     if not self.barFrame then return end
     if InCombatLockdown() then self:RegisterEvent("PLAYER_REGEN_ENABLED", "UpdateLayout"); return end
@@ -94,8 +92,6 @@ function VB:OnEnable()
             btn.icon:SetTexCoord(unpack(E.TexCoords))
             btn.hotkey = btn:CreateFontString(nil, "OVERLAY")
             btn.hotkey:FontTemplate(nil, 12, "OUTLINE")
-            
-            -- 【终极鼠标提示引擎】：支持脱战和战斗中实时显示底层技能说明！绝不报错！
             btn:SetScript("OnEnter", function(self)
                 local action = self:GetAttribute("action")
                 if action then

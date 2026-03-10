@@ -3,9 +3,6 @@ local E, L, V, P, G = unpack(ElvUI)
 local WUI = E:GetModule('WishFlex') 
 local WFN = WUI:NewModule('WishFlex_Narrative', 'AceEvent-3.0', 'AceHook-3.0')
 
--- ==========================================
--- 默认配置注入
--- ==========================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.narrative = true
 P["WishFlex"].narrative = {
@@ -14,9 +11,6 @@ P["WishFlex"].narrative = {
     markHighestSellPrice = true, 
 }
 
--- ==========================================
--- 职业动态色彩引擎
--- ==========================================
 local classColor = E:ClassColor(E.myclass, true)
 local CR, CG, CB = 0, 1, 0.8 
 local CHEX = "|cff00ffcc"
@@ -25,16 +19,12 @@ if classColor then
     CHEX = E:RGBToHex(CR, CG, CB)
 end
 
--- ==========================================
--- ElvUI 风格冲突警告弹窗 (12.01 纯净版)
--- ==========================================
 E.PopupDialogs["WISHFLEX_CONFLICT_DIALOGUEUI"] = {
     text = CHEX.."WishFlex 冲突警告！|r\n\n检测到您同时启用了 [Dialogue UI] 插件。\n这两个插件都在尝试接管任务界面，会导致面板闪退或无法交互。\n\n请选择您要保留哪一个？(选择后将自动重载界面)",
     button1 = "保留 WishFlex",
     button2 = "保留 Dialogue UI",
     button3 = "稍后再说",
     OnAccept = function()
-        -- 12.01 专用 API
         C_AddOns.DisableAddOn("DialogueUI")
         ReloadUI()
     end,
@@ -45,16 +35,12 @@ E.PopupDialogs["WISHFLEX_CONFLICT_DIALOGUEUI"] = {
         end
     end,
     OnAlt = function()
-        -- 稍后再说，关闭弹窗
     end,
     timeout = 0,
     whileDead = 1,
     hideOnEscape = false,
 }
 
--- ==========================================
--- API 防弹衣 (已针对 12.01 精简)
--- ==========================================
 local function SafeText(str) return str and tostring(str) or "" end
 
 local function SafeGetNumCurrencies(questID)
@@ -78,9 +64,6 @@ local function SafeGetRepRewards()
     return C_QuestOffer.GetQuestOfferMajorFactionReputationRewards() or {}
 end
 
--- ==========================================
--- 组件生成器
--- ==========================================
 local function CreateActionButton(parent, text, point, relativeFrame, relativePoint, x, y)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(160, 40) 
@@ -184,19 +167,12 @@ local function CreateItemButton(parent)
     return btn
 end
 
--- ==========================================
--- 界面构建
--- ==========================================
 function WFN:CreateUI()
     local cfg = E.db.WishFlex.narrative
     local frame = CreateFrame("Frame", "WishFlexNarrativeFrame", UIParent)
     frame:SetFrameStrata("DIALOG")
     frame:Hide()
     frame:SetTemplate("Transparent")
-    
-    -- ==========================================
-    -- 弹出动画引擎 (渐显 + 微缩放)
-    -- ==========================================
     frame.EntranceAnim = frame:CreateAnimationGroup()
     
     local alpha = frame.EntranceAnim:CreateAnimation("Alpha")
@@ -279,7 +255,6 @@ function WFN:CreateUI()
     self.SelectedChoice = nil
 
     frame:SetScript("OnHide", function()
-        -- 12.01 专用关闭 API
         C_GossipInfo.CloseGossip() 
         CloseQuest()
     end)
@@ -361,9 +336,6 @@ function WFN:RegisterGameEvents()
     end
 end
 
--- ==========================================
--- 动态选项
--- ==========================================
 function WFN:UpdateGossipOptions()
     for _, btn in ipairs(self.OptionButtons) do btn:Hide() end
     wipe(self.CurrentKeyCallbacks)
@@ -421,10 +393,6 @@ function WFN:SelectRewardChoice(index)
         end
     end
 end
-
--- ==========================================
--- 奖励池引擎
--- ==========================================
 function WFN:UpdateQuestItems()
     for _, btn in ipairs(self.ItemButtons) do btn:Hide() end
     self.SelectedChoice = nil
@@ -627,9 +595,6 @@ function WFN:UpdateQuestItems()
     self:UpdateScrollState()
 end
 
--- ==========================================
--- 状态机与冲突拦截 (12.01 纯净版)
--- ==========================================
 function WFN:CheckConflictAndBlock()
     local isLoaded = C_AddOns.IsAddOnLoaded("DialogueUI")
     
@@ -735,9 +700,6 @@ end
 function WFN:GOSSIP_CLOSED() self.Frame:Hide() end
 function WFN:QUEST_FINISHED() self.Frame:Hide() end
 
--- ==========================================
--- 键盘操作枢纽
--- ==========================================
 function WFN:HandleSpacebar()
     if self.CurrentMode == "QUEST_DETAIL" then
         AcceptQuest()
@@ -773,13 +735,9 @@ function WFN:HandleNumberKey(num)
     end
 end
 
--- ==========================================
--- 注入配置选项
--- ==========================================
+
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
-    
-    -- 完整定义“小工具”父菜单（带有颜色和排序 21）
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { 
         order = 21, 
         type = "group", 
@@ -788,8 +746,6 @@ local function InjectOptions()
         args = {} 
     }
     WUI.OptionsArgs.widgets.args = WUI.OptionsArgs.widgets.args or {}
-
-    -- 将沉浸任务挂载为小工具的子菜单
     WUI.OptionsArgs.widgets.args.narrative = {
         order = 22, type = "group", name = "沉浸任务",
         args = {

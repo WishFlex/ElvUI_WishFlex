@@ -8,8 +8,7 @@ P["WishFlex"].modules.RightClick = true
 
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
-    
-    -- 完整定义“小工具”父菜单
+
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { 
         order = 21, 
         type = "group", 
@@ -17,10 +16,9 @@ local function InjectOptions()
         childGroups = "tab", 
         args = {} 
     }
-    
-    -- 直接挂载为独立标签页，去掉了 general 层级
+
     WUI.OptionsArgs.widgets.args.RightClick = {
-        order = 6, type = "group", name = "右键防误触",
+        order = 6, type = "group", name = "禁用右键选中目标",
         args = {
             enable = { 
                 order = 1, type = "toggle", name = "双击右键选中目标", 

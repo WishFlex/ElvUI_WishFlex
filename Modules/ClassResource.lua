@@ -17,15 +17,11 @@ local defaults = {
     tertiary = { enable = true, height = 10, textEnable = true, textFormat = "AUTO", textAnchor = "CENTER", font = "Expressway", fontSize = 12, outline = "OUTLINE", color = {r=1, g=1, b=1}, xOffset = 0, yOffset = 0, timerEnable = true, timerAnchor = "CENTER", timerXOffset = 0, timerYOffset = 0, useCustomColor = false, customColor = {r=0.4, g=0.8, b=1}, useCustomTexture = false, texture = "WishFlex-g1", useCustomBgTexture = false, bgTexture = "WishFlex-g1", bgColor = {r=0, g=0, b=0, a=0.5}, useCustomRechargeColor = false, rechargeColor = {r=1, g=1, b=1, a=0.75} },
     mana = { enable = true, height = 10, textEnable = true, textFormat = "AUTO", textAnchor = "CENTER", font = "Expressway", fontSize = 12, outline = "OUTLINE", color = {r=1, g=1, b=1}, xOffset = 0, yOffset = 0, timerEnable = true, timerAnchor = "CENTER", timerXOffset = 0, timerYOffset = 0, useCustomColor = false, customColor = {r=0, g=0.5, b=1}, barXOffset = 0, barYOffset = 0, useCustomTexture = false, texture = "WishFlex-g1", useCustomBgTexture = false, bgTexture = "WishFlex-g1", bgColor = {r=0, g=0, b=0, a=0.5} },
 }
-
--- 【核心修复】：将默认值注册给 ElvUI 引擎，解决配置文件切换时的空表问题
 P["WishFlex"].classResource = defaults
 
 local DEFAULT_COLOR = {r=1, g=1, b=1}
 local POWER_COLORS = { [0]={r=0,g=0.5,b=1}, [1]={r=1,g=0,b=0}, [2]={r=1,g=0.5,b=0.25}, [3]={r=1,g=1,b=0}, [4]={r=1,g=0.96,b=0.41}, [5]={r=0.8,g=0.1,b=0.2}, [7]={r=0.5,g=0.32,b=0.55}, [8]={r=0.3,g=0.52,b=0.9}, [9]={r=0.95,g=0.9,b=0.6}, [11]={r=0,g=0.5,b=1}, [12]={r=0.71,g=1,b=0.92}, [13]={r=0.4,g=0,b=0.8}, [16]={r=0.1,g=0.1,b=0.98}, [17]={r=0.79,g=0.26,b=0.99}, [18]={r=1,g=0.61,b=0}, [19]={r=0.4,g=0.8,b=1} }
 local TERTIARY_COLORS = { shaman_apps={r=0,g=0.5,b=1}, hunter_apps={r=0.6,g=0.8,b=0.2}, warrior_apps={r=0.8,g=0.1,b=0.1}, stagger_green={r=0,g=1,b=0.5}, stagger_yellow={r=1,g=1,b=0}, stagger_red={r=1,g=0,b=0}, evoker_dur={r=0.8,g=0.6,b=0.1}, dh_vengeance={r=0.6,g=0.2,b=0.8}, mage_icicles={r=0.4,g=0.8,b=1}, mage_charges={r=1,g=0.5,b=0} }
-
--- 【性能核心修复1/3】：将颜色表提取到外层静态区域，防止心跳函数内高频创建 {} 垃圾
 local PLAYER_CLASS_COLOR = DEFAULT_COLOR
 local cc_cache = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[playerClass]
 if cc_cache then PLAYER_CLASS_COLOR = {r=cc_cache.r, g=cc_cache.g, b=cc_cache.b} end
@@ -53,8 +49,6 @@ local function GetDB()
     if type(E.db.WishFlex.classResource) ~= "table" then E.db.WishFlex.classResource = {} end
     
     local db = E.db.WishFlex.classResource
-    -- 【动态纠错】：放弃旧版静态 dbInitialized 变量
-    -- 实时检测数据库内是否缺少核心表，若缺少(如切换配置后)，立刻重新注入
     if not db.power or not db.class or not db.tertiary or not db.mana then
         DeepMerge(db, defaults)
     end
@@ -121,7 +115,6 @@ local function GetPowerColor(pType) return POWER_COLORS[pType] or DEFAULT_COLOR 
 local function GetClassResourceData()
     local spec = GetSpecializationInfo(GetSpecialization() or 1)
     local pType = UnitPowerType("player")
-    -- 【性能核心修复】使用外部提取的纯净全局常量
     local classColor = PLAYER_CLASS_COLOR
     
     if playerClass == "ROGUE" then return UnitPower("player", 4), UnitPowerMax("player", 4), classColor, true
@@ -1117,8 +1110,6 @@ function CR:Initialize()
         CR.frameTick = CR.frameTick + 1
         
         local SMOOTH_SPEED = 15
-        
-        -- 【性能核心修复3/3】：抛弃对 {} 临时表的高频调用，改用数字索引迭代纯净数组
         for i = 1, 4 do
             local bar = CR.AllBars[i]
             if bar and bar.statusBar and not bar.isForceHidden then

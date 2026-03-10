@@ -57,7 +57,6 @@ function mod.ApplyTexCoord(texture, width, height)
     texture:SetTexCoord(left, right, top, bottom)
 end
 
--- 安全判断防 Taint 报错
 local function SafeEquals(v, expected)
     return (type(v) ~= "number" or not (issecretvalue and issecretvalue(v))) and v == expected
 end
@@ -69,10 +68,6 @@ local function SafeHide(self)
     end
 end
 
--- ==========================================
--- 【联动引擎核心】：直接向 AuraGlow 询问黑名单！
--- 只要是被点名的高亮技能，排版引擎直接略过它，消灭所有卡顿缝隙！
--- ==========================================
 local function IsAuraGlowTarget(info)
     if not info or not E.db.WishFlex.auraGlow or not E.db.WishFlex.auraGlow.enable then return false end
     local AG = WUI:GetModule('AuraGlow', true)
@@ -95,7 +90,6 @@ local function IsAuraGlowTarget(info)
     return false
 end
 
--- 彻底消杀原生边框与暴雪红色高亮
 local function SuppressDebuffBorder(f)
     if not f then return end
     if f._wishBorderSuppressed then return end
@@ -360,20 +354,15 @@ function mod:ApplyText(frame, category, rowIndex)
     FormatText(stackText, true, cdSize, cdColor, cdX, cdY, stackSize, stackColor, stackX, stackY, fontPath, outline, frame)
 end
 
--- ==========================================
--- 出场即锁定，并在源头直接配合 AuraGlow 抹杀需要隐藏的图标！
--- ==========================================
 function mod:ImmediateStyleFrame(frame, category)
     if not frame then return end
-    
-    -- 【排版引擎核心修复】：如果当前是增益区，且被 AuraGlow 点名拉黑，拒绝给予它物理尺寸！
     if (category == "BuffIcon" or category == "BuffBar") and IsAuraGlowTarget(frame.cooldownInfo) then
         if frame:GetWidth() >= 1 then frame.wishFlexOrigWidth = frame:GetWidth() end
         frame:SetAlpha(0)
         if frame.Icon then frame.Icon:SetAlpha(0) end
         frame:SetWidth(0.001)
         frame:EnableMouse(false)
-        return -- 直接退出，绝不赋予尺寸！
+        return 
     end
 
     SuppressDebuffBorder(frame)
@@ -407,9 +396,6 @@ local cachedR1 = {}
 local cachedR2 = {}
 local cachedActiveAT = {}
 
--- ==========================================
--- 纯净数学对齐：完美跳过隐藏图标，绝对不留缝隙！
--- ==========================================
 local function DoLayoutBuffs(viewerName, key, isVertical)
     local db = E.db.WishFlex.cdManager
     local container = _G[viewerName]
@@ -422,7 +408,6 @@ local function DoLayoutBuffs(viewerName, key, isVertical)
     if container.itemFramePool then 
         for f in container.itemFramePool:EnumerateActive() do 
             if f:IsShown() then 
-                -- 【核心排版修复】：如果它是被 AuraGlow 隐藏的目标，强力压扁它！绝不加入渲染队列！
                 if IsAuraGlowTarget(f.cooldownInfo) then
                     if f:GetWidth() >= 1 then f.wishFlexOrigWidth = f:GetWidth() end
                     f:SetAlpha(0)
@@ -430,7 +415,6 @@ local function DoLayoutBuffs(viewerName, key, isVertical)
                     f:SetWidth(0.001)
                     f:EnableMouse(false)
                 else
-                    -- 如果不再是被隐藏目标，恢复其物理体积并加入队列
                     if f:GetWidth() < 1 then 
                         f:SetWidth(f.wishFlexOrigWidth or (key == "BuffBar" and 120 or 45))
                         f:SetAlpha(1)
@@ -684,9 +668,7 @@ function mod:UpdateAllLayouts()
     end
 end
 
--- ==========================================
--- 同步渲染锁机制，只在需要的那一瞬间触发 1 次，0 延迟、0 占用！
--- ==========================================
+
 local isLayingOut = false
 function mod:TriggerLayout()
     if isLayingOut then return end

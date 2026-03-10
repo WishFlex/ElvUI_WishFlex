@@ -4,9 +4,6 @@ local WUI = E:GetModule('WishFlex')
 local mod = WUI:NewModule('LustMonitor', 'AceEvent-3.0', 'AceTimer-3.0')
 local LSM = E.Libs.LSM
 
--- ==========================================
--- 1. 默认数据库
--- ==========================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.lustMonitor = true
 P["WishFlex"].lustMonitor = {
@@ -15,24 +12,16 @@ P["WishFlex"].lustMonitor = {
 }
 
 -- ==========================================
--- 2. 嗜血法术 ID 数据库 (综合法术释放与光环监控)
--- ==========================================
 local LUST_IDS = {
-    -- 施法技能 ID
     [2825]   = true, -- 萨满：嗜血
     [32182]  = true, -- 萨满：英勇
     [80353]  = true, -- 法师：时间扭曲
     [390386] = true, -- 唤魔师：守护巨龙之怒
-    
-    -- 【猎人专属修复】
     [264667] = true, -- 猎人宠物：原始狂怒 (宝宝施法)
-    [272678] = true, -- 猎人本人：命令宠物 (这才是猎人玩家真正按下的那个技能ID！)
-    
+    [272678] = true, -- 猎人本人：命令宠物 (这才是猎人玩家真正按下的那个技能ID！)  
     [381301] = true, -- 物品：狂野皮革战鼓 (巨龙时代)
     [256740] = true, -- 物品：漩涡战鼓
     [178207] = true, [230935] = true, [264689] = true, [390435] = true, [80354] = true,
-    
-    -- 负面状态 ID (心满意足/竭力) 用于兜底扫描
     [57723]  = true, [57724]  = true
 }
 
@@ -42,9 +31,6 @@ local isLustActive, timeLeft = false, 0
 local activeSoundHandle = nil
 local lustStartTime = 0
 
--- ==========================================
--- 3. 设置菜单
--- ==========================================
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 30, type = "group", name = "|cff00cccc小工具|r", childGroups = "tab", args = {} }
@@ -88,9 +74,6 @@ function mod:StopLustSound()
     if activeSoundHandle then StopSound(activeSoundHandle); activeSoundHandle = nil end
 end
 
--- ==========================================
--- 4. 视觉与动画引擎
--- ==========================================
 function mod:CreateUI()
     if self.mainFrame then return end
     self.mainFrame = CreateFrame("Frame", "WishFlex_LustMainFrame", E.UIParent)
@@ -115,21 +98,17 @@ function mod:CreateUI()
 
     local currentFrame, animElapsed, COLS, ROWS, TOTAL = 0, 0, 8, 16, 121
     self.mainFrame:SetScript("OnUpdate", function(s, delta)
-        -- 播放序列帧
         animElapsed = animElapsed + delta
         if animElapsed > 0.04 then
             animElapsed = 0; currentFrame = (currentFrame + 1) % TOTAL
             local row, col = math.floor(currentFrame / COLS), currentFrame % COLS
             self.tex:SetTexCoord(col/COLS, (col+1)/COLS, row/ROWS, (row+1)/ROWS)
         end
-        
-        -- 更新倒计时数字
         if isLustActive or self.IsPreviewing then
             if self.IsPreviewing then
                 timeLeft = timeLeft - delta
                 if timeLeft <= 0 then timeLeft = 40 end
             else
-                -- 核心计时逻辑：根据触发时间计算剩余 40 秒
                 if lustStartTime > 0 then
                     timeLeft = 40 - (GetTime() - lustStartTime)
                     if timeLeft <= 0 then mod:EndLustVisuals() end
@@ -147,7 +126,6 @@ end
 function mod:PlayLustAnimation()
     if not self.mainFrame then self:CreateUI() end
     if self.IsPreviewing then
-        -- 修复：取消预览时绝对不碰触战斗状态变量 isLustActive
         self.IsPreviewing = false
         if not isLustActive then
             self.mainFrame:Hide()
@@ -168,9 +146,6 @@ function mod:PlayLustAnimation()
     end
 end
 
--- ==========================================
--- 5. 核心：双重触发机制 (施法监听 + 光环兜底)
--- ==========================================
 function mod:TriggerLustVisuals(startTime)
     if self.IsPreviewing then return end
     lustStartTime = startTime or GetTime()
@@ -192,7 +167,6 @@ function mod:EndLustVisuals()
     self:StopLustSound()
 end
 
--- 兜底方法：扫描心满意足等 Debuff，防重载断线
 function mod:SyncLustAura()
     if self.IsPreviewing or InCombatLockdown() then return end
     
@@ -219,9 +193,6 @@ function mod:SyncLustAura()
     end
 end
 
--- ==========================================
--- 6. 初始化与事件挂载
--- ==========================================
 function mod:Initialize()
     InjectOptions()
     if not E.db.WishFlex.modules.lustMonitor then return end 

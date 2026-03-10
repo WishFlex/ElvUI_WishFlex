@@ -3,9 +3,6 @@ local LSM = E.Libs.LSM
 local WUI = E:GetModule('WishFlex')
 local mod = WUI:NewModule('WishTargetAlert')
 
--- ==========================================
--- 1. 默认设置与数据库补全
--- ==========================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.targetAlert = true
 
@@ -30,9 +27,6 @@ local function GetDB()
     return db
 end
 
--- ==========================================
--- 2. 视觉防变形裁切与字体安全获取
--- ==========================================
 local function ApplyTexCoord(texture, width, height)
     if not texture then return end
     local ratio = (width or 60) / (height or 60)
@@ -55,9 +49,7 @@ local function GetSafeFont()
     return fontPath
 end
 
--- ==========================================
--- 3. 设置菜单注入 
--- ==========================================
+
 function mod:InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 21, type = "group", name = "|cff00e5cc小工具|r", childGroups = "tab", args = {} }
@@ -88,9 +80,7 @@ function mod:InjectOptions()
     }
 end
 
--- ==========================================
--- 4. 事件引擎挂载
--- ==========================================
+
 WishFlexTargetAlertEngine = CreateFrame("Frame", "WishFlexTargetAlertEngine", UIParent)
 local Engine = WishFlexTargetAlertEngine
 Engine.pool = {}
@@ -105,9 +95,7 @@ Engine:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET")
 Engine:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 Engine:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 
--- ==========================================
--- 5. 锚点与池化框架管理
--- ==========================================
+
 function mod:UpdateLayout()
     if not self.anchor then return end
     local db = GetDB()
@@ -163,9 +151,7 @@ local function GetAlertFrame(unit)
     return Engine.pool[unit]
 end
 
--- ==========================================
--- 6. 核心逻辑：安全执行与防干扰
--- ==========================================
+
 function Engine:UpdatePositions()
     local active = {}
     for unit, f in pairs(self.pool) do
@@ -218,14 +204,9 @@ local function MarkAsFailed(unit)
     local f = Engine.pool[unit]
     if f and f:IsShown() and not f.isFailed then
         f.isFailed = true
-        
-        -- 褪色变灰
         if f.Icon.SetDesaturated then f.Icon:SetDesaturated(true) end
-        f.Icon:SetVertexColor(0.5, 0.5, 0.5) 
-        
+        f.Icon:SetVertexColor(0.5, 0.5, 0.5)      
         if f.Time:GetFont() then f.Time:SetText("") end 
-        
-        -- 打断绿色边框
         if E.Libs.CustomGlow then 
             E.Libs.CustomGlow.PixelGlow_Stop(f) 
             E.Libs.CustomGlow.PixelGlow_Start(f, {0, 1, 0, 1}, 8, 0.25, 8, 2, 0, 0, false, "WishTargetAlertGlow_"..unit)
@@ -341,9 +322,6 @@ function Engine:Preview()
     end
 end
 
--- ==========================================
--- 7. 事件派发与倒计时渲染
--- ==========================================
 Engine:SetScript("OnEvent", function(self, event, unit)
     if not unit or unit == "player" then return end
     if not (string.find(unit, "^nameplate") or string.find(unit, "^boss")) then return end
@@ -378,13 +356,11 @@ Engine:SetScript("OnUpdate", function(self, elapsed)
                     if f.Time:GetFont() then f.Time:SetFormattedText("%.1f", remain) end
                 else
                     if f.Time:GetFont() then f.Time:SetText("") end
-                    -- 修复：测试模式在倒计时结束后自动调用 StopUI 消失
                     if string.sub(unit, 1, 4) == "TEST" then
                         StopUI(unit)
                     end
                 end
             elseif f.durationObj then
-                -- 【修复内存泄漏】：摒弃匿名函数，将方法指针直接交给 pcall
                 local ok, remain = pcall(f.durationObj.GetRemainingDuration, f.durationObj)
                 if ok and remain and f.Time:GetFont() then
                     f.Time:SetFormattedText("%.1f", remain)
@@ -394,9 +370,7 @@ Engine:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
--- ==========================================
--- 8. ElvUI 模块装载
--- ==========================================
+
 function mod:Initialize()
     if self.Initialized then return end
     self.Initialized = true

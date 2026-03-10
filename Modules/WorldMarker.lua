@@ -3,15 +3,12 @@ local E, L, V, P, G = unpack(ElvUI)
 local WUI = E:GetModule('WishFlex')
 local WM = WUI:NewModule('WorldMarker', 'AceEvent-3.0')
 
--- =====================================================================
--- 1. 默认数据库
--- =====================================================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.worldMarker = true
 P["WishFlex"].worldMarker = {
     placeKey = "",
     clearKey = "",
-    markers = { 5, 6, 3, 4, 1, 2, 7, 8 } -- 默认顺序：星星, 大饼, 紫菱, 红叉, 方块, 三角, 月亮, 骷髅
+    markers = { 5, 6, 3, 4, 1, 2, 7, 8 } 
 }
 
 local markerIcons = {
@@ -26,30 +23,22 @@ local markerIcons = {
     [8] = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_8:14|t 骷髅 (白)",
 }
 
--- =====================================================================
--- 2. 核心功能：原生 type1/type2 双轨架构 + 暴力 8 连发清除
--- =====================================================================
+
 function WM:UpdateBindings()
     local db = E.db.WishFlex.worldMarker
     if not db then return end
-
-    -- 创建唯一的终极安全按钮，挂靠在 UIParent 保证始终活跃
     if not self.btn then
         self.btn = CreateFrame("Button", "WishFlex_WorldMarkerBtn", UIParent, "SecureActionButtonTemplate")
         self.btn:SetSize(1, 1)
         self.btn:SetAlpha(0)
         self.btn:RegisterForClicks("AnyUp", "AnyDown")
-        
-        -- 开启左键 (type1) 和 右键 (type2) 的独立宏通道
         self.btn:SetAttribute("type1", "macro")
         self.btn:SetAttribute("type2", "macro")
-        
-        -- 【核心修复】：暴雪原生没有 /cwm all，必须用暴力 8 连发清除 1-8 号光柱！
         local clearMacroText = "/cwm 1\n/cwm 2\n/cwm 3\n/cwm 4\n/cwm 5\n/cwm 6\n/cwm 7\n/cwm 8"
         self.btn:SetAttribute("macrotext2", clearMacroText)
     end
 
-    -- 提取玩家设置的循环顺序
+
     local body = "i = 0; order = newtable();\n"
     for i = 1, 8 do
         local val = db.markers[i]
@@ -58,7 +47,7 @@ function WM:UpdateBindings()
         end
     end
 
-    -- 注入逻辑：判断当前是左键点击(放置)还是右键点击(清除)
+
     SecureHandlerExecute(self.btn, body)
     SecureHandlerUnwrapScript(self.btn, "PreClick")
     SecureHandlerWrapScript(self.btn, "PreClick", self.btn, [[
@@ -79,7 +68,7 @@ function WM:UpdateBindings()
         end
     ]])
 
-    -- 绑定玩家设置的快捷键：放置键模拟左击，清除键模拟右击
+
     ClearOverrideBindings(self.btn)
     if db.placeKey and db.placeKey ~= "" then
         SetOverrideBindingClick(self.btn, true, db.placeKey, "WishFlex_WorldMarkerBtn", "LeftButton")
@@ -89,13 +78,8 @@ function WM:UpdateBindings()
     end
 end
 
--- =====================================================================
--- 3. 设置面板
--- =====================================================================
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
-    
-    -- 完整定义“小工具”父菜单（带有颜色和排序 21）
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { 
         order = 21, 
         type = "group", 
@@ -104,8 +88,6 @@ local function InjectOptions()
         args = {} 
     }
     WUI.OptionsArgs.widgets.args = WUI.OptionsArgs.widgets.args or {}
-
-    -- 将光柱标记挂载为小工具的子菜单
     WUI.OptionsArgs.widgets.args.worldMarker = {
         order = 25, type = "group", name = "光柱标记",
         args = {

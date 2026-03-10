@@ -5,9 +5,6 @@ local MOD = WUI:NewModule('RareAlert', 'AceEvent-3.0', 'AceTimer-3.0')
 local S = E:GetModule('Skins')
 local LSM = E.Libs.LSM
 
--- ==========================================
--- 1. 默认数据库注入
--- ==========================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.rareAlert = true 
 P["WishFlex"].rareAlert = {
@@ -16,9 +13,6 @@ P["WishFlex"].rareAlert = {
     duration = 30, 
 }
 
--- ==========================================
--- 2. 设置菜单注入
--- ==========================================
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 30, type = "group", name = "|cff00cccc小工具|r", childGroups = "tab", args = {} }
@@ -34,9 +28,6 @@ local function InjectOptions()
     }
 end
 
--- ==========================================
--- 3. WishFlex 核心极简弹窗
--- ==========================================
 local WISH3_TEX = [[Interface\AddOns\ElvUI_WishFlex\Media\Textures\Wish3.tga]]
 local lastAlertName = ""
 
@@ -50,7 +41,7 @@ function MOD:CreateAlertFrame()
     local f = CreateFrame("Button", "WishFlex_RareAlertFrame", holder, "SecureActionButtonTemplate, BackdropTemplate")
     f:SetSize(280, 60)
     f:SetPoint("CENTER", holder, "CENTER")
-    f:SetTemplate("Transparent") -- StripeSkin 会自动拦截这一步并铺上斜纹！
+    f:SetTemplate("Transparent") 
     f:SetFrameStrata("HIGH")
     f:SetClampedToScreen(true)
     f:RegisterForClicks("LeftButtonDown", "RightButtonDown")
@@ -82,7 +73,7 @@ function MOD:CreateAlertFrame()
     local classColor = E:ClassColor(E.myclass, true)
     statusBar:SetStatusBarColor(classColor.r, classColor.g, classColor.b)
     
-    statusBar:CreateBackdrop("Transparent") -- StripeSkin 同样会自动拦截进度条背景！
+    statusBar:CreateBackdrop("Transparent") 
     f.statusBar = statusBar
 
     local close = CreateFrame("Button", nil, f)
@@ -115,8 +106,6 @@ function MOD:TriggerAlert(name, unit, npcID, displayID, isChestFallback)
     self.frame.portraitBack:Hide()
     self.frame.portrait:Hide()
     self.frame.portrait:ClearModel()
-    
-    -- 🔥 渲染逻辑
     if name == "测试稀有精英" then
         self.frame.portraitBack:Show()
         self.frame.portrait:Show()
@@ -191,10 +180,6 @@ function MOD:TestAlert()
     end
     self:TriggerAlert("测试稀有精英", "player")
 end
-
--- ==========================================
--- 4. 终极截胡：模型与文本双重认证
--- ==========================================
 local rsHooked = false
 
 function MOD:StealFromRareScanner()

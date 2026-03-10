@@ -5,19 +5,12 @@ local mod = WUI:GetModule('AuraGlow', true) or WUI:NewModule('AuraGlow', 'AceHoo
 
 local LCG = E.Libs and E.Libs.CustomGlow
 if not LCG then LCG = LibStub and LibStub("LibCustomGlow-1.0", true) end
-
--- =========================================
--- [内存泄漏克星]：预分配静态池
--- =========================================
 local activeSkillFrames = {}
 local activeBuffFrames = {}
 local targetAuraCache = {}
 local BaseSpellCache = {}
-mod.fastTrackedBuffs = {} -- 【性能核心】：O(1)极速哈希字典
+mod.fastTrackedBuffs = {}
 
--- =========================================
--- 1. 初始化数据库 (引入全特效配置)
--- =========================================
 P["WishFlex"] = P["WishFlex"] or { modules = {} }
 P["WishFlex"].modules.auraGlow = true
 P["WishFlex"].auraGlow = {
@@ -77,8 +70,6 @@ P["WishFlex"].auraGlow = {
         ["374348"] = { buffID = 374348, duration = 0 }, 
     },
     text = { font = "Expressway", fontSize = 20, fontOutline = "OUTLINE", color = {r = 1, g = 0.82, b = 0}, offsetX = 0, offsetY = 0 },
-    
-    -- 全新升级的综合特效框架参数
     glowType = "pixel", glowUseCustomColor = true, glowColor = {r = 1, g = 0.82, b = 0, a = 1},
     glowPixelLines = 8, glowPixelFrequency = 0.25, glowPixelLength = 10, glowPixelThickness = 2, glowPixelXOffset = 0, glowPixelYOffset = 0,
     glowAutocastParticles = 4, glowAutocastFrequency = 0.2, glowAutocastScale = 1, glowAutocastXOffset = 0, glowAutocastYOffset = 0,
@@ -89,10 +80,6 @@ local OverlayFrames = {}
 local ActiveGlows = {}
 mod.trackedAuras = {} 
 mod.manualTrackers = {} 
-
--- =========================================
--- 2. 核心轻量化防爆引擎 
--- =========================================
 local function IsSafeValue(val)
     if val == nil then return false end
     if type(issecretvalue) == "function" and issecretvalue(val) then return false end
@@ -141,8 +128,6 @@ local function IsValidActiveAura(aura)
     end)
     return isValid
 end
-
--- 【性能优化模块】：生成 O(1) 的哈希缓存
 function mod:BuildFastCache()
     wipe(mod.fastTrackedBuffs)
     if E.db.WishFlex and E.db.WishFlex.auraGlow and E.db.WishFlex.auraGlow.spells then
@@ -155,7 +140,6 @@ function mod:BuildFastCache()
     end
 end
 
--- 【性能优化模块】：O(1) 极速核验
 local function ShouldHideFrame(info)
     if not info then return false end
     if IsSafeValue(info.spellID) then
@@ -171,10 +155,6 @@ local function ShouldHideFrame(info)
     end
     return false
 end
-
--- =========================================
--- 3. 设置界面 (引入全套发光选项)
--- =========================================
 local function IsSpellLearned(spellID)
     if not IsSafeValue(spellID) then return false end
     if IsPlayerSpell(spellID) then return true end
@@ -283,9 +263,6 @@ local function InjectOptions()
     }
 end
 
--- =========================================
--- 4. 动态裁切算法 & 极速贴合
--- =========================================
 local function GetCropCoords(w, h)
     local l, r, t, b = unpack(E.TexCoords)
     if not w or not h or h == 0 or w == 0 then return l, r, t, b end
@@ -338,9 +315,6 @@ local function SnapOverlayToFrame(overlay, sourceFrame)
     return false
 end
 
--- =========================================
--- 5. 召唤暴雪原生渲染引擎 
--- =========================================
 local function SyncOverlayTextAndVisuals(overlay)
     local cfg = E.db.WishFlex.auraGlow.text
     local fontPath = LSM:Fetch('font', cfg.font)
@@ -406,11 +380,8 @@ local function GetOrCreateOverlay(parentFrame, spellID)
     return OverlayFrames[spellID]
 end
 
--- 【全特效应用核心模块】
 local function ApplyIndependentGlow(ov)
     local cfg = E.db.WishFlex.auraGlow
-    
-    -- 先清除所有可能存在的旧特效，防止重叠
     LCG.PixelGlow_Stop(ov, "WishAuraDurationGlow")
     LCG.AutoCastGlow_Stop(ov, "WishAuraDurationGlow")
     LCG.ButtonGlow_Stop(ov)
@@ -444,9 +415,6 @@ local function ClearIndependentGlow(spellID)
     end
 end
 
--- =========================================
--- 7. 动态引擎：无懈可击的最强核心
--- =========================================
 function mod:UpdateGlows(forceUpdate)
     if not E.db.WishFlex.auraGlow.enable then return end
     mod.trackedAuras = mod.trackedAuras or {}
@@ -603,9 +571,6 @@ function mod:UpdateGlows(forceUpdate)
     end
 end
 
--- =========================================
--- 8. 核心事件截获器
--- =========================================
 function mod:UNIT_SPELLCAST_SUCCEEDED(event, unit, castGUID, spellID)
     if unit ~= "player" then return end
     if not E.db.WishFlex.auraGlow.enable then return end
@@ -625,9 +590,6 @@ function mod:UNIT_SPELLCAST_SUCCEEDED(event, unit, castGUID, spellID)
     if triggered then mod:UpdateGlows() end
 end
 
--- =========================================
--- 9. 增益静默隐藏钩子
--- =========================================
 local function HookBuffHide()
     local function HideIt(frame)
         if not E.db.WishFlex.auraGlow.enable or not frame.cooldownInfo then return end
@@ -656,9 +618,6 @@ local function HookBuffHide()
     end
 end
 
--- =========================================
--- 10. 事件防抖合并引擎 (黄金帧率节流)
--- =========================================
 local updatePending = false
 local function RequestUpdateGlows()
     if updatePending then return end

@@ -11,8 +11,6 @@ local STRIPE_TEX = [[Interface\AddOns\ElvUI_WishFlex\Media\stripes.blp]]
 
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
-    
-    -- 完整定义“小工具”父菜单
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { 
         order = 21, 
         type = "group", 
@@ -20,8 +18,6 @@ local function InjectOptions()
         childGroups = "tab", 
         args = {} 
     }
-    
-    -- 直接挂载为独立标签页，去掉了 general 层级
     WUI.OptionsArgs.widgets.args.stripeSkin = {
         order = 5, type = "group", name = "斜纹背景",
         args = {
@@ -41,8 +37,6 @@ local function ApplyWishStyle(f)
     local name = f:GetName()
     
     if name and name:find("SharedScrollBox") then return end
-    
-    -- 精准放行主窗口，但拦截普通命名的子框体（如伤害条）
     if name and name:find("DamageMeter") and not name:find("DamageMeterSessionWindow") then return end
     if f:GetParent() then
         local pName = f:GetParent():GetName()
@@ -62,9 +56,6 @@ local function ApplyWishStyle(f)
     target.WishStripe = stripe
 end
 
--- ==========================================
--- 精准头像与施法条美化
--- ==========================================
 local function SkinUnitFrames()
     if not E.db.WishFlex.modules.stripeSkin then return end
     
@@ -96,9 +87,6 @@ local function SkinUnitFrames()
     end
 end
 
--- ==========================================
--- 动态框体追踪雷达 (彻底解决 GC 内存暴涨版)
--- ==========================================
 local bagFrames = {
     "Baganator_CategoryViewBackpackViewFrame",
     "Baganator_CategoryViewBankViewFrame",
@@ -107,7 +95,6 @@ local bagFrames = {
     "Baganator_GuildViewFrame"
 }
 
--- 通过底层可变参数 (...) 与 select 迭代，0 内存分配捕获匿名框架！
 local function ScanUnnamedBackdrops(...)
     for i = 1, select("#", ...) do
         local child = select(i, ...)
@@ -150,9 +137,6 @@ local function TrySkinDynamicFrames()
     end
 end
 
--- ==========================================
--- LOD (按需加载) 界面延迟美化
--- ==========================================
 function MOD:ADDON_LOADED(_, addonName)
     if not E.db.WishFlex.modules.stripeSkin then return end
     
@@ -198,7 +182,7 @@ function MOD:Initialize()
             _G.RightChatPanel,
             _G.ElvUI_CopyChatFrame,
             _G.WishFlex_RareAlertFrame,
-            _G.WishFlexNarrativeFrame, -- 【新增】：沉浸任务界面主框体
+            _G.WishFlexNarrativeFrame, 
             _G.GameMenuFrame,
             _G.ElvLootFrame, 
             _G.LootFrame,
@@ -211,8 +195,6 @@ function MOD:Initialize()
         if _G.WishFlex_RareAlertFrame and _G.WishFlex_RareAlertFrame.statusBar then
             ApplyWishStyle(_G.WishFlex_RareAlertFrame.statusBar)
         end
-        
-        -- 【新增】：为沉浸任务界面的常驻固定按钮补充美化扫描
         if _G.WishFlexNarrativeFrame then
             if _G.WishFlexNarrativeFrame.AcceptButton then ApplyWishStyle(_G.WishFlexNarrativeFrame.AcceptButton) end
             if _G.WishFlexNarrativeFrame.DeclineButton then ApplyWishStyle(_G.WishFlexNarrativeFrame.DeclineButton) end
