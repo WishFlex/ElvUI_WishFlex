@@ -42,6 +42,11 @@
         "WorldFrame",
         "SlashCmdList",
         "UIFrameFadeRemoveFrame",
-        "SpellActivationOverlayFrame"
+        "SpellActivationOverlayFrame",
+        "RegisterStateDriver",
+        "UnregisterStateDriver",
+        "SecureHandlerExecute",
+        "SecureHandlerUnwrapScript",
+        "SecureHandlerWrapScript"
     ]
 }

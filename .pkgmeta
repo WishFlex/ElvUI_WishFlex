@@ -8,5 +8,5 @@ ignore:
   - .gitattributes     # 忽略 Git 属性文件
   - .pkgmeta           # 忽略这个配置文件本身
   - README.md          # 忽略项目说明文档（如果你有的话）
-- CHANGELOG.md
+  - CHANGELOG.md
   # 如果你有特定的模块不想打包，也可以写在这里，例如：
