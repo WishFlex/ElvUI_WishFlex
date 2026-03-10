@@ -8,12 +8,27 @@ P["WishFlex"].modules.RightClick = true
 
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
-    WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 21, type = "group", name = "|cff00e5cc小工具|r", childGroups = "tab", args = {} }
     
-    -- 创建“基础美化”子分组
-    WUI.OptionsArgs.widgets.args.general = WUI.OptionsArgs.widgets.args.general or { order = 1, type = "group", name = "基础美化", args = {} }
+    -- 完整定义“小工具”父菜单
+    WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { 
+        order = 21, 
+        type = "group", 
+        name = "|cff00e5cc小工具|r", 
+        childGroups = "tab", 
+        args = {} 
+    }
     
-    WUI.OptionsArgs.widgets.args.general.args.RightClick = { order = 2, type = "toggle", name = "防误触(双击右键)", get = function() return E.db.WishFlex.modules.RightClick end, set = function(_, v) E.db.WishFlex.modules.RightClick = v; E:StaticPopup_Show("CONFIG_RL") end }
+    -- 直接挂载为独立标签页，去掉了 general 层级
+    WUI.OptionsArgs.widgets.args.RightClick = {
+        order = 6, type = "group", name = "右键防误触",
+        args = {
+            enable = { 
+                order = 1, type = "toggle", name = "双击右键选中目标", 
+                get = function() return E.db.WishFlex.modules.RightClick end, 
+                set = function(_, v) E.db.WishFlex.modules.RightClick = v; E:StaticPopup_Show("CONFIG_RL") end 
+            }
+        }
+    }
 end
 
 local lastUpTime = 0
