@@ -9,6 +9,8 @@ P["WishFlex"].modules.smarthide = true
 P["WishFlex"].smarthide = {
     enable = true, forceShow = false,
     filters = { unitframe = true, buffs = true, cooldowns = true, actionbar = true, minimap = true, friendly = false, actionTimer = true, classResource = true, damageMeter = true },
+    -- 【新增】：飞行/驭空术强制隐藏的默认配置（默认全不选）
+    dragonriding = { unitframe = false, buffs = false, cooldowns = false, actionbar = false, minimap = false, classResource = false, damageMeter = false, actionTimer = false },
 }
 
 local function InjectOptions()
@@ -20,7 +22,24 @@ local function InjectOptions()
         order = 1, type = "group", name = "基础设置",
         args = {
             enable = { order = 1, type = "toggle", name = "启用", get = function() return E.db.WishFlex.modules.smarthide end, set = function(_, v) E.db.WishFlex.modules.smarthide = v; E:StaticPopup_Show("CONFIG_RL") end },
-            force = { order = 2, type = "toggle", name = "强制显示全部", get = function() return E.db.WishFlex.smarthide.forceShow end, set = function(_, v) E.db.WishFlex.smarthide.forceShow = v; SH:UpdateVisibility() end }
+            force = { order = 2, type = "toggle", name = "强制显示全部", get = function() return E.db.WishFlex.smarthide.forceShow end, set = function(_, v) E.db.WishFlex.smarthide.forceShow = v; SH:UpdateVisibility() end },
+            -- 【新增】：飞行/驭空术多选菜单
+            dragonriding = {
+                order = 3, type = "multiselect", name = "飞行/驭空术时强制隐藏",
+                desc = "选中后，只要你处于飞行或驭空术状态，无论是否进战，都会强制隐藏该模块以提供沉浸式体验。",
+                values = {
+                    unitframe = "单位框体 (玩家/宠物/目标)",
+                    buffs = "增益减益 (玩家光环)",
+                    cooldowns = "冷却管理器",
+                    actionTimer = "动作计时条",
+                    minimap = "小地图",
+                    classResource = "职业资源与能量条",
+                    actionbar = "特定动作条 (宠物条)",
+                    damageMeter = "伤害统计窗口",
+                },
+                get = function(info, key) return E.db.WishFlex.smarthide.dragonriding[key] end,
+                set = function(info, key, value) E.db.WishFlex.smarthide.dragonriding[key] = value; SH:UpdateVisibility() end,
+            }
         }
     }
     args.filters = {
@@ -46,44 +65,46 @@ local function InjectOptions()
     }
 end
 
-local WishBuffHost = CreateFrame("Frame", "WishBuffHost", UIParent)
-local WishDebuffHost = CreateFrame("Frame", "WishDebuffHost", UIParent)
-local WishBarPetHost = CreateFrame("Frame", "WishBarPetHost", UIParent)
-local WishClassResourceHost = CreateFrame("Frame", "WishClassResourceHost", UIParent)
-local WishCooldownHost = CreateFrame("Frame", "WishCooldownHost", UIParent)
-local WishActionTimerHost = CreateFrame("Frame", "WishActionTimerHost", UIParent)
-
-WishBuffHost:Show(); WishDebuffHost:Show(); WishBarPetHost:Show(); WishClassResourceHost:Show()
-WishCooldownHost:Show(); WishActionTimerHost:Show()
-
-local HiddenFrame = CreateFrame("Frame")
-HiddenFrame:Hide()
+-- 全局宿主容器
+local WishBuffHost = CreateFrame("Frame", "WishBuffHost", UIParent); WishBuffHost:SetAllPoints(UIParent); WishBuffHost:Show()
+local WishDebuffHost = CreateFrame("Frame", "WishDebuffHost", UIParent); WishDebuffHost:SetAllPoints(UIParent); WishDebuffHost:Show()
+local WishBarPetHost = CreateFrame("Frame", "WishBarPetHost", UIParent); WishBarPetHost:SetAllPoints(UIParent); WishBarPetHost:Show()
+local WishClassResourceHost = CreateFrame("Frame", "WishClassResourceHost", UIParent); WishClassResourceHost:SetAllPoints(UIParent); WishClassResourceHost:Show()
+local WishCooldownHost = CreateFrame("Frame", "WishCooldownHost", UIParent); WishCooldownHost:SetAllPoints(UIParent); WishCooldownHost:Show()
+local WishActionTimerHost = CreateFrame("Frame", "WishActionTimerHost", UIParent); WishActionTimerHost:SetAllPoints(UIParent); WishActionTimerHost:Show()
+local WishDamageMeterHost = CreateFrame("Frame", "WishDamageMeterHost", UIParent); WishDamageMeterHost:SetAllPoints(UIParent); WishDamageMeterHost:Show()
 
 local FRAME_CATEGORIES = {
-    ["ElvUF_Player"] = { cat = "unitframe", isPlayerOnly = true },
-    ["ElvUF_Pet"] = { cat = "unitframe", isPlayerOnly = true, requirePet = true }, 
-    ["ElvUF_Target"] = { cat = "unitframe", isPlayerOnly = false },
-    ["ElvUIPlayerBuffs"] = { cat = "buffs", isSpecialHost = "WishBuffHost" },
-    ["ElvUIPlayerDebuffs"] = { cat = "buffs", isSpecialHost = "WishDebuffHost" },
-    ["ElvUI_BarPet"] = { cat = "actionbar", isSpecialHost = "WishBarPetHost" },
-    ["WishFlex_ClassBar"] = { cat = "classResource", isSpecialHost = "WishClassResourceHost" },
-    ["WishFlex_PowerBar"] = { cat = "classResource", isSpecialHost = "WishClassResourceHost" },
-    ["WishFlex_TertiaryBar"] = { cat = "classResource", isSpecialHost = "WishClassResourceHost" },
-    ["WishFlex_ManaBar"] = { cat = "classResource", isSpecialHost = "WishClassResourceHost" },
+    ["ElvUF_Player"] = { cat = "unitframe", type = "player" },
+    ["ElvUF_Pet"] = { cat = "unitframe", type = "alpha", isPlayerOnly = true, requirePet = true }, 
+    ["ElvUF_Target"] = { cat = "unitframe", type = "alpha", isPlayerOnly = false },
+
+    ["ElvUIPlayerBuffs"] = { cat = "buffs", type = "host", host = "WishBuffHost" },
+    ["ElvUIPlayerDebuffs"] = { cat = "buffs", type = "host", host = "WishDebuffHost" },
+    ["ElvUI_BarPet"] = { cat = "actionbar", type = "host", host = "WishBarPetHost" },
     
-    ["EssentialCooldownViewer"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
-    ["UtilityCooldownViewer"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
-    ["WishFlex_CooldownRow2_Anchor"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
-    ["WishFlex_ActionTimer_Anchor"] = { cat = "actionTimer", isSpecialHost = "WishActionTimerHost" },
-    ["BuffIconCooldownViewer"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
-    ["BuffBarCooldownViewer"] = { cat = "cooldowns", isSpecialHost = "WishCooldownHost" },
-    ["DamageMeterSessionWindow1"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true },
-    ["DamageMeterSessionWindow2"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true },
-    ["DamageMeterSessionWindow3"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true },
-    ["DamageMeter"] = { cat = "damageMeter", isPlayerOnly = false, isUnprotected = true }
+    ["WishFlex_ClassBar"] = { cat = "classResource", type = "host", host = "WishClassResourceHost" },
+    ["WishFlex_PowerBar"] = { cat = "classResource", type = "host", host = "WishClassResourceHost" },
+    ["WishFlex_TertiaryBar"] = { cat = "classResource", type = "host", host = "WishClassResourceHost" },
+    ["WishFlex_ManaBar"] = { cat = "classResource", type = "host", host = "WishClassResourceHost" },
+    ["WishFlex_AuraAnchor"] = { cat = "classResource", type = "host", host = "WishClassResourceHost" },
+    
+    ["EssentialCooldownViewer"] = { cat = "cooldowns", type = "host", host = "WishCooldownHost" },
+    ["UtilityCooldownViewer"] = { cat = "cooldowns", type = "host", host = "WishCooldownHost" },
+    ["WishFlex_CooldownRow2_Anchor"] = { cat = "cooldowns", type = "host", host = "WishCooldownHost" },
+    ["WishFlex_ActionTimer_Anchor"] = { cat = "actionTimer", type = "host", host = "WishActionTimerHost" },
+    ["BuffIconCooldownViewer"] = { cat = "cooldowns", type = "host", host = "WishCooldownHost" },
+    ["BuffBarCooldownViewer"] = { cat = "cooldowns", type = "host", host = "WishCooldownHost" },
+
+    ["DamageMeterSessionWindow1"] = { cat = "damageMeter", type = "host", host = "WishDamageMeterHost" },
+    ["DamageMeterSessionWindow2"] = { cat = "damageMeter", type = "host", host = "WishDamageMeterHost" },
+    ["DamageMeterSessionWindow3"] = { cat = "damageMeter", type = "host", host = "WishDamageMeterHost" },
+    ["DamageMeter"] = { cat = "damageMeter", type = "host", host = "WishDamageMeterHost" },
+
+    ["MMHolder"] = { cat = "minimap", type = "secure" },
+    ["MinimapCluster"] = { cat = "minimap", type = "secure" }
 }
 
-local MINIMAP_FRAMES = { "MinimapCluster", "Minimap", "MinimapBackdrop", "MinimapPanel", "MMHolder" }
 local PLAYER_UF_ELEMENTS = {
     "Health", "Power", "Portrait", "InfoPanel", "AuraBars", 
     "Buffs", "Debuffs", "ThreatIndicator", "ResurrectIndicator",
@@ -112,22 +133,16 @@ end
 local HookedFrames = {}
 
 local function SecureAlphaHook(frame, alpha)
-    if frame.SmartHideTargetAlpha == 0 and alpha ~= 0 then
-        frame:SetAlpha(0)
-    end
+    if frame.SmartHideTargetAlpha == 0 and alpha ~= 0 then frame:SetAlpha(0) end
 end
 
 local function SetFrameAlphaImmediate(frame, targetAlpha)
     if type(frame) ~= "table" or not frame.SetAlpha then return end
-    
     if frame.isForceHidden then
-        if frame.Hide and frame:IsShown() then frame:Hide() end
         if frame:GetAlpha() ~= 0 then frame:SetAlpha(0) end
         return
     end
-
     local isUnitFrame = frame.GetName and frame:GetName() and frame:GetName():find("ElvUF_")
-
     if frame.SmartHideTargetAlpha == targetAlpha then return end
     frame.SmartHideTargetAlpha = targetAlpha
 
@@ -138,131 +153,135 @@ local function SetFrameAlphaImmediate(frame, targetAlpha)
 
     if UIFrameFadeRemoveFrame then UIFrameFadeRemoveFrame(frame) end 
     frame:SetAlpha(targetAlpha)
-    
     if isUnitFrame then
-        if not InCombatLockdown() and frame.EnableMouse then
-            frame:EnableMouse(targetAlpha == 1)
-        end
-        return 
-    end
-
-    if InCombatLockdown() then return end
-
-    if targetAlpha == 0 then 
-        if frame.Hide and frame:IsShown() then frame:Hide() end 
-    else 
-        if frame.Show and not frame:IsShown() then frame:Show() end 
+        if not InCombatLockdown() and frame.EnableMouse then frame:EnableMouse(targetAlpha == 1) end
     end
 end
 
 local function IsPlayerFlying() return type(IsFlying) == "function" and IsFlying() end
 
-function SH:UpdateMinimap(show)
-    local targetAlpha = show and 1 or 0
-    for i = 1, #MINIMAP_FRAMES do
-        local f = _G[MINIMAP_FRAMES[i]]
-        if f then
-            if UIFrameFadeRemoveFrame then UIFrameFadeRemoveFrame(f) end
-            if f:GetAlpha() ~= targetAlpha then f:SetAlpha(targetAlpha) end
-            
-            if show then
-                if not f:IsShown() then f:Show() end
-            else
-                if f:IsShown() then f:Hide() end
-            end
-        end
+-- 【更新】：生成小地图专用的底层驱动宏，融入飞行判断
+local function GetSecureMacro(db, cat)
+    if db.forceShow then return "show" end
+    
+    local macro = "[petbattle] hide; "
+    if cat ~= "minimap" then
+        macro = macro .. "[vehicleui] hide; "
     end
+    
+    -- 1. 飞行/驭空术隐藏逻辑（优先级最高）
+    if db.dragonriding and db.dragonriding[cat] then
+        macro = macro .. "[flying] hide; "
+    elseif cat == "minimap" then
+        -- 默认情况下飞行时显示小地图
+        macro = macro .. "[flying] show; "
+    end
+    
+    -- 2. 如果未勾选常规智能隐藏，则保持显示
+    if not db.filters[cat] then
+        macro = macro .. "show"
+        return macro
+    end
+    
+    -- 3. 常规的脱战智能隐藏
+    if db.filters.friendly then
+        macro = macro .. "[combat] show; [harm] show; hide"
+    else
+        macro = macro .. "[combat] show; [exists] show; hide"
+    end
+    return macro
 end
 
 function SH:UpdateVisibility()
     local db = E.db.WishFlex.smarthide
-    if not db or not db.enable then return end
+    if not db or not db.enable then 
+        for name, info in pairs(FRAME_CATEGORIES) do
+            if info.type == "secure" then
+                local f = GetCachedFrame(name)
+                if f and f._wishSecureMacro then
+                    UnregisterStateDriver(f, "visibility")
+                    f:Show()
+                    f._wishSecureMacro = nil
+                end
+            end
+        end
+        return 
+    end
 
     local inCombat = InCombatLockdown()
     local hasTarget = false
-    
     if UnitExists("target") then
-        if db.filters.friendly then hasTarget = UnitCanAttack("player", "target") or UnitIsPlayer("target") 
-        else hasTarget = true end
+        if db.filters.friendly then hasTarget = UnitCanAttack("player", "target") or UnitIsPlayer("target") else hasTarget = true end
     end
     
     local isFlying = IsPlayerFlying() 
     local inPetBattle = C_PetBattles and C_PetBattles.IsInBattle()
     local inVehicle = UnitInVehicle("player") or UnitHasVehicleUI("player")
 
-    local shouldShowMinimap = (inCombat or hasTarget or isFlying) and not inPetBattle
     local shouldShowPlayerOnly = (inCombat or hasTarget) and not inPetBattle
     local shouldShowOthers = (inCombat or hasTarget) and not inPetBattle
-    
-    if inVehicle then 
-        shouldShowOthers = false 
-    end
+    if inVehicle then shouldShowOthers = false end
+    if db.forceShow then shouldShowPlayerOnly = true; shouldShowOthers = true end
 
-    if db.forceShow then 
-        shouldShowMinimap = true; 
-        shouldShowPlayerOnly = true; 
-        shouldShowOthers = true 
-    end
-
-    local finalMinimapShow = true
-    if db.filters.minimap then finalMinimapShow = shouldShowMinimap end
-    self:UpdateMinimap(finalMinimapShow)
+    local minimapMacro = GetSecureMacro(db, "minimap")
 
     for name, info in pairs(FRAME_CATEGORIES) do
         local f = GetCachedFrame(name)
         if f then
-            local targetAlpha
-            if info.isPlayerOnly then
-                targetAlpha = shouldShowPlayerOnly and 1 or 0
-            else
-                targetAlpha = shouldShowOthers and 1 or 0
-            end
+            if info.type == "secure" then
+                if f._wishSecureMacro ~= minimapMacro then
+                    RegisterStateDriver(f, "visibility", minimapMacro)
+                    f._wishSecureMacro = minimapMacro
+                end
+            
+            elseif info.type == "host" then
+                local targetAlpha = shouldShowOthers and 1 or 0
+                if info.cat == "buffs" or info.cat == "actionbar" then targetAlpha = shouldShowPlayerOnly and 1 or 0 end
+                if not db.filters[info.cat] then targetAlpha = 1 end
+                
+                -- 【飞行拦截】：如果勾选了飞行隐藏，强制设为 0
+                if isFlying and db.dragonriding and db.dragonriding[info.cat] then targetAlpha = 0 end
 
-            if info.requirePet and not UnitExists("pet") then targetAlpha = 0 end
-
-            local isControlled = db.filters[info.cat]
-            if not isControlled then targetAlpha = 1 end
-
-            if info.isSpecialHost then
-                local hostFrame = _G[info.isSpecialHost]
+                local hostFrame = _G[info.host]
                 if hostFrame then
                     if f:GetParent() ~= hostFrame and not InCombatLockdown() then
                         f:SetParent(hostFrame)
+                        if info.cat == "damageMeter" and name == "DamageMeterSessionWindow1" then
+                            if not f:IsShown() then pcall(function() f:Show() end) end
+                        end
                     end
-                    
                     local finalAlpha = targetAlpha
-                    if info.isSpecialHost == "WishBarPetHost" and not UnitExists("pet") then
-                        finalAlpha = 0
-                    end
-                    
+                    if info.host == "WishBarPetHost" and not UnitExists("pet") then finalAlpha = 0 end
                     hostFrame:SetAlpha(finalAlpha)
                 end
-            
-            elseif info.isUnprotected then
-                if targetAlpha == 1 then
-                    if not f:IsShown() then f:Show() end
-                else
-                    if f:IsShown() then f:Hide() end
-                end
+                
+            elseif info.type == "player" then
+                local targetAlpha = shouldShowPlayerOnly and 1 or 0
+                if not db.filters[info.cat] then targetAlpha = 1 end
+                
+                -- 【飞行拦截】：如果勾选了飞行隐藏，强制设为 0
+                if isFlying and db.dragonriding and db.dragonriding[info.cat] then targetAlpha = 0 end
 
-            elseif name == "ElvUF_Player" then
-                if f:GetAlpha() ~= 1 then 
-                    f.SmartHideTargetAlpha = 1
-                    f:SetAlpha(1) 
-                end
+                if f:GetAlpha() ~= 1 then f.SmartHideTargetAlpha = 1; f:SetAlpha(1) end
                 for i = 1, #PLAYER_UF_ELEMENTS do
                     local el = f[PLAYER_UF_ELEMENTS[i]]
                     if el and type(el) == "table" and el.SetAlpha then 
                         el.SmartHideTargetAlpha = targetAlpha
-                        if not HookedFrames[el] then
-                            hooksecurefunc(el, "SetAlpha", SecureAlphaHook)
-                            HookedFrames[el] = true
-                        end
+                        if not HookedFrames[el] then hooksecurefunc(el, "SetAlpha", SecureAlphaHook); HookedFrames[el] = true end
                         if UIFrameFadeRemoveFrame then UIFrameFadeRemoveFrame(el) end
                         el:SetAlpha(targetAlpha)
                     end
                 end
-            else
+                
+            elseif info.type == "alpha" then
+                local targetAlpha = info.isPlayerOnly and shouldShowPlayerOnly or shouldShowOthers
+                targetAlpha = targetAlpha and 1 or 0
+                if info.requirePet and not UnitExists("pet") then targetAlpha = 0 end
+                if not db.filters[info.cat] then targetAlpha = 1 end
+                
+                -- 【飞行拦截】：如果勾选了飞行隐藏，强制设为 0
+                if isFlying and db.dragonriding and db.dragonriding[info.cat] then targetAlpha = 0 end
+
                 SetFrameAlphaImmediate(f, targetAlpha)
             end
         end
@@ -272,14 +291,15 @@ function SH:UpdateVisibility()
     if playerFrame and playerFrame.customTexts then
         local textAlpha = 1
         if db.filters.unitframe and not shouldShowPlayerOnly then textAlpha = 0 end
+        
+        -- 【飞行拦截】：文字也一起隐藏
+        if isFlying and db.dragonriding and db.dragonriding.unitframe then textAlpha = 0 end
+        
         if db.forceShow then textAlpha = 1 end
         for _, textFrame in pairs(playerFrame.customTexts) do 
             if textFrame and type(textFrame) == "table" and textFrame.SetAlpha then 
                 textFrame.SmartHideTargetAlpha = textAlpha
-                if not HookedFrames[textFrame] then
-                    hooksecurefunc(textFrame, "SetAlpha", SecureAlphaHook)
-                    HookedFrames[textFrame] = true
-                end
+                if not HookedFrames[textFrame] then hooksecurefunc(textFrame, "SetAlpha", SecureAlphaHook); HookedFrames[textFrame] = true end
                 if UIFrameFadeRemoveFrame then UIFrameFadeRemoveFrame(textFrame) end
                 textFrame:SetAlpha(textAlpha)
             end 

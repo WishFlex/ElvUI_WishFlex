@@ -9,6 +9,7 @@ P["WishFlex"].narrative = {
     width = 800,
     height = 650,
     markHighestSellPrice = true, 
+    disabledByConflict = false, -- 【新增】用于记录是否因为插件冲突而被迫休眠
 }
 
 local classColor = E:ClassColor(E.myclass, true)
@@ -31,6 +32,7 @@ E.PopupDialogs["WISHFLEX_CONFLICT_DIALOGUEUI"] = {
     OnCancel = function(self, data, reason)
         if reason == "clicked" then
             E.db.WishFlex.modules.narrative = false
+            E.db.WishFlex.narrative.disabledByConflict = true -- 【新增】打上“因冲突休眠”的标签
             ReloadUI()
         end
     end,
@@ -91,13 +93,15 @@ local function CreateOptionButton(parent)
     btn:SetTemplate("Transparent")
 
     btn.Text = btn:CreateFontString(nil, "OVERLAY")
-    btn.Text:FontTemplate(nil, 15, "NONE")
+    btn.Text:FontTemplate(nil, 18, "NONE") 
     btn.Text:SetPoint("LEFT", btn, "LEFT", 20, 0)
     btn.Text:SetJustifyH("LEFT")
+    btn.Text:SetWordWrap(false)
     
     btn:SetScript("OnEnter", function(self)
         self:SetBackdropBorderColor(CR, CG, CB) 
         self.Text:SetTextColor(CR, CG, CB)
+        self:SetBackdropColor(CR, CG, CB, 0.15) 
     end)
     btn:SetScript("OnLeave", function(self)
         self:SetTemplate("Transparent")
@@ -288,7 +292,7 @@ function WFN:UpdateSize()
 
     if self.CurrentMode == "QUEST_DETAIL" or self.CurrentMode == "QUEST_COMPLETE" or self.CurrentMode == "QUEST_PROGRESS" then
         self:UpdateQuestItems()
-    elseif self.CurrentMode == "GOSSIP" then
+    elseif self.CurrentMode == "GOSSIP" or self.CurrentMode == "QUEST_GREETING" then
         self:UpdateGossipOptions()
     end
 end
@@ -304,6 +308,19 @@ function WFN:UpdateScrollState()
         if not self.ScrollFrame or not self.Frame:IsShown() then return end
         
         local contentHeight = self.Frame.Text:GetStringHeight()
+        
+        if self.CurrentMode == "GOSSIP" or self.CurrentMode == "QUEST_GREETING" then
+            local activeOptions = 0
+            for _, btn in ipairs(self.OptionButtons) do
+                if btn and btn:IsShown() then
+                    activeOptions = activeOptions + 1
+                end
+            end
+            if activeOptions > 0 then
+                contentHeight = contentHeight + 25 + (activeOptions * 50) + ((activeOptions - 1) * 12)
+            end
+        end
+
         self.ScrollChild:SetHeight(contentHeight + 20)
         
         local frameHeight = self.ScrollFrame:GetHeight()
@@ -346,17 +363,18 @@ function WFN:UpdateGossipOptions()
         if buttonIndex > 9 then return end 
         local btn = self.OptionButtons[buttonIndex]
         if not btn then
-            btn = CreateOptionButton(self.Frame)
+            btn = CreateOptionButton(self.ScrollChild)
             self.OptionButtons[buttonIndex] = btn
         end
         
-        btn:SetSize(contentWidth, 40)
+        btn:SetParent(self.ScrollChild)
+        btn:SetSize(contentWidth, 50) 
         btn:ClearAllPoints()
         
         if buttonIndex == 1 then
-            btn:SetPoint("TOPLEFT", self.ScrollFrame, "BOTTOMLEFT", 0, -20)
+            btn:SetPoint("TOPLEFT", self.Frame.Text, "BOTTOMLEFT", 0, -25)
         else
-            btn:SetPoint("TOPLEFT", self.OptionButtons[buttonIndex - 1], "BOTTOMLEFT", 0, -10)
+            btn:SetPoint("TOPLEFT", self.OptionButtons[buttonIndex - 1], "BOTTOMLEFT", 0, -12)
         end
         
         btn.Text:SetText(string.format("%s[ %d ]|r %s", CHEX, buttonIndex, displayText))
@@ -366,17 +384,33 @@ function WFN:UpdateGossipOptions()
         buttonIndex = buttonIndex + 1
     end
 
-    local avail = C_GossipInfo.GetAvailableQuests()
-    if avail then for _, q in ipairs(avail) do AddOption(CHEX .. "[任务]|r " .. SafeText(q.title), function() C_GossipInfo.SelectAvailableQuest(q.questID) end) end end
+    if self.CurrentMode == "GOSSIP" then
+        local avail = C_GossipInfo.GetAvailableQuests()
+        if avail then for _, q in ipairs(avail) do AddOption(CHEX .. "[任务]|r " .. SafeText(q.title), function() C_GossipInfo.SelectAvailableQuest(q.questID) end) end end
 
-    local active = C_GossipInfo.GetActiveQuests()
-    if active then for _, q in ipairs(active) do AddOption((q.isComplete and CHEX .. "[可交]|r " or "|cff888888[进行中]|r ") .. SafeText(q.title), function() C_GossipInfo.SelectActiveQuest(q.questID) end) end end
+        local active = C_GossipInfo.GetActiveQuests()
+        if active then for _, q in ipairs(active) do AddOption((q.isComplete and CHEX .. "[可交]|r " or "|cff888888[进行中]|r ") .. SafeText(q.title), function() C_GossipInfo.SelectActiveQuest(q.questID) end) end end
 
-    local opts = C_GossipInfo.GetOptions()
-    if opts then for _, o in ipairs(opts) do AddOption(SafeText(o.name), function() C_GossipInfo.SelectOption(o.gossipOptionID) end) end end
+        local opts = C_GossipInfo.GetOptions()
+        if opts then for _, o in ipairs(opts) do AddOption(SafeText(o.name), function() C_GossipInfo.SelectOption(o.gossipOptionID) end) end end
+        
+    elseif self.CurrentMode == "QUEST_GREETING" then
+        local numAvail = GetNumAvailableQuests() or 0
+        for i = 1, numAvail do
+            AddOption(CHEX .. "[任务]|r " .. SafeText(GetAvailableTitle(i)), function() SelectAvailableQuest(i) end)
+        end
+        
+        local numActive = GetNumActiveQuests() or 0
+        for i = 1, numActive do
+            local title = GetActiveTitle(i)
+            local isComplete = false
+            if IsActiveQuestComplete then isComplete = IsActiveQuestComplete(i) end
+            
+            AddOption((isComplete and CHEX .. "[可交]|r " or "|cff888888[进行中]|r ") .. SafeText(title), function() SelectActiveQuest(i) end)
+        end
+    end
 
-    local optionRows = buttonIndex - 1
-    self.ScrollFrame:SetPoint("BOTTOMRIGHT", self.Frame, "BOTTOMRIGHT", -70, 80 + (optionRows * 50))
+    self.ScrollFrame:SetPoint("BOTTOMRIGHT", self.Frame, "BOTTOMRIGHT", -70, 90)
     self:UpdateScrollState()
 end
 
@@ -393,6 +427,7 @@ function WFN:SelectRewardChoice(index)
         end
     end
 end
+
 function WFN:UpdateQuestItems()
     for _, btn in ipairs(self.ItemButtons) do btn:Hide() end
     self.SelectedChoice = nil
@@ -630,9 +665,13 @@ end
 function WFN:QUEST_GREETING()
     if self:CheckConflictAndBlock() then return end
     
-    self:PrepareUI("GOSSIP")
+    self:PrepareUI("QUEST_GREETING")
     self.Frame.Title:SetText(SafeText(UnitName("npc")) ~= "" and SafeText(UnitName("npc")) or "未知目标")
-    self:SetContentText(SafeText(GetGreetingText()))
+    
+    local greeting = SafeText(GetGreetingText())
+    if greeting == "" then greeting = "请选择一个任务：" end
+    self:SetContentText(greeting)
+    
     self.Frame.AcceptButton:Hide()
     self.Frame.DeclineButton:Hide()
     self:UpdateGossipOptions()
@@ -717,7 +756,7 @@ function WFN:HandleSpacebar()
         self.Frame:Hide()
     elseif self.CurrentMode == "QUEST_PROGRESS" then
         CompleteQuest()
-    elseif self.CurrentMode == "GOSSIP" then
+    elseif self.CurrentMode == "GOSSIP" or self.CurrentMode == "QUEST_GREETING" then
         if self.CurrentKeyCallbacks[1] and not self.CurrentKeyCallbacks[2] then
             self.CurrentKeyCallbacks[1]()
         end
@@ -725,7 +764,7 @@ function WFN:HandleSpacebar()
 end
 
 function WFN:HandleNumberKey(num)
-    if self.CurrentMode == "GOSSIP" and self.CurrentKeyCallbacks[num] then
+    if (self.CurrentMode == "GOSSIP" or self.CurrentMode == "QUEST_GREETING") and self.CurrentKeyCallbacks[num] then
         self.CurrentKeyCallbacks[num]()
     elseif self.CurrentMode == "QUEST_COMPLETE" then
         local numChoices = GetNumQuestChoices() or 0
@@ -734,7 +773,6 @@ function WFN:HandleNumberKey(num)
         end
     end
 end
-
 
 local function InjectOptions()
     WUI.OptionsArgs = WUI.OptionsArgs or {}
@@ -752,7 +790,11 @@ local function InjectOptions()
             enable = { 
                 order = 1, type = "toggle", name = "启用模块", 
                 get = function() return E.db.WishFlex.modules.narrative end, 
-                set = function(_, v) E.db.WishFlex.modules.narrative = v; E:StaticPopup_Show("CONFIG_RL") end 
+                set = function(_, v) 
+                    E.db.WishFlex.modules.narrative = v
+                    E.db.WishFlex.narrative.disabledByConflict = false -- 【新增】当玩家手动开关时，清除休眠标记
+                    E:StaticPopup_Show("CONFIG_RL") 
+                end 
             }, 
             width = { 
                 order = 2, type = "range", name = "界面宽度", min = 600, max = 1200, step = 10, 
@@ -781,6 +823,15 @@ function WFN:Initialize()
     if self.Initialized then return end
     self.Initialized = true
     InjectOptions() 
+    
+    -- 【自动唤醒引擎】
+    -- 如果带有“因冲突休眠”标记，且 Dialogue UI 已经被玩家移除或禁用，则自动唤醒本模块
+    if E.db.WishFlex.narrative.disabledByConflict and not C_AddOns.IsAddOnLoaded("DialogueUI") then
+        E.db.WishFlex.modules.narrative = true
+        E.db.WishFlex.narrative.disabledByConflict = false
+        print(CHEX.."WishFlex:|r 检测到 Dialogue UI 已停用，已自动为您唤醒 [沉浸任务] 模块！")
+    end
+
     if not E.db.WishFlex.modules.narrative then return end
     self:CreateUI()
     self:RegisterGameEvents()

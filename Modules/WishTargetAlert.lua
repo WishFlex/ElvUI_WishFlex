@@ -67,7 +67,7 @@ function mod:InjectOptions()
                 iconGap = { order = 2, type = "range", name = "图标间距", min = 0, max = 50, step = 1 }
             } },
             
-            glowGroup = { order = 8, type = "group", name = "走马灯特效", guiInline = true, args = { 
+            glowGroup = { order = 8, type = "group", name = "发光", guiInline = true, args = { 
                 useGlow = { order = 1, type = "toggle", name = "启用" }, 
                 glowColor = { order = 2, type = "color", hasAlpha = true, name = "边框颜色", get = function() local t = GetDB().glowColor return t.r, t.g, t.b, t.a end, set = function(_, r, g, b, a) GetDB().glowColor = {r=r,g=g,b=b,a=a}; mod:UpdateLayout() end }, 
                 glowLines = { order = 3, type = "range", name = "线条数", min = 1, max = 20, step = 1 }, 

@@ -18,7 +18,7 @@ local function InjectOptions()
     WUI.OptionsArgs.widgets = WUI.OptionsArgs.widgets or { order = 30, type = "group", name = "|cff00cccc小工具|r", childGroups = "tab", args = {} }
     WUI.OptionsArgs.widgets.args.rareAlert = {
         order = 4, type = "group", name = "稀有报警",
-        hidden = function() return not C_AddOns.IsAddOnLoaded("RareScanner") end,
+        -- 移除 hidden 判断，确保无论是否加载 RareScanner，设置标签永远可见
         args = {
             enable = { order = 1, type = "toggle", name = "接管 RareScanner", desc = "将原版弹窗幽灵化并流放到屏幕外，彻底替换为 WishFlex 的极简提示条。\n\n|cff00ffcc提示：请在 RareScanner 原版设置中关闭声音，由下方选项统一接管。|r", get = function() return E.db.WishFlex.modules.rareAlert end, set = function(_, v) E.db.WishFlex.modules.rareAlert = v; E:StaticPopup_Show("CONFIG_RL") end },
             duration = { order = 2, type = "range", name = "显示时长 (秒)", desc = "设置为 0 时将永久显示，直到手动关闭。", min = 0, max = 120, step = 1, get = function() return E.db.WishFlex.rareAlert.duration end, set = function(_, v) E.db.WishFlex.rareAlert.duration = v end },
@@ -94,7 +94,11 @@ function MOD:CreateAlertFrame()
     E:CreateMover(holder, "WishFlex_RareAlertMover", "稀有精英报警", nil, nil, nil, "ALL,WishFlex")
 end
 
-function MOD:TriggerAlert(name, unit, npcID, displayID, isChestFallback)
+-- 注意这里的参数，改为了 isNpc (是否为生物)
+function MOD:TriggerAlert(name, unit, npcID, displayID, isNpc)
+    -- 1. 战斗中完全禁止弹出
+    if InCombatLockdown() then return end
+
     if not name or name == "" then return end
     if lastAlertName == name and name ~= "测试稀有精英" then return end
     
@@ -103,9 +107,12 @@ function MOD:TriggerAlert(name, unit, npcID, displayID, isChestFallback)
 
     self:CreateAlertFrame()
     
+    -- 初始状态：隐藏底框和模型
     self.frame.portraitBack:Hide()
     self.frame.portrait:Hide()
     self.frame.portrait:ClearModel()
+
+    -- 2. 只有明确是生物（或者测试用例），才给头像和底框
     if name == "测试稀有精英" then
         self.frame.portraitBack:Show()
         self.frame.portrait:Show()
@@ -114,7 +121,7 @@ function MOD:TriggerAlert(name, unit, npcID, displayID, isChestFallback)
         self.frame.text:ClearAllPoints()
         self.frame.text:SetPoint("LEFT", self.frame.portraitBack, "RIGHT", 15, 0) 
         
-    elseif not isChestFallback and (npcID or displayID) then
+    elseif isNpc and (npcID or displayID) then
         self.frame.portraitBack:Show()
         self.frame.portrait:Show()
         
@@ -128,6 +135,9 @@ function MOD:TriggerAlert(name, unit, npcID, displayID, isChestFallback)
         self.frame.text:ClearAllPoints()
         self.frame.text:SetPoint("LEFT", self.frame.portraitBack, "RIGHT", 15, 0) 
     else
+        -- 核心逻辑：其他任何非生物（不管是不是宝箱、货币、暴雪事件），一律不给底框，文字左对齐！
+        self.frame.portraitBack:Hide()
+        self.frame.portrait:Hide()
         self.frame.text:ClearAllPoints()
         self.frame.text:SetPoint("LEFT", self.frame, "LEFT", 20, 0)
     end
@@ -178,8 +188,10 @@ function MOD:TestAlert()
         self.frame:SetScript("OnUpdate", nil)
         self.frame:Hide() 
     end
+    -- 测试按钮强制调用
     self:TriggerAlert("测试稀有精英", "player")
 end
+
 local rsHooked = false
 
 function MOD:StealFromRareScanner()
@@ -225,15 +237,10 @@ function MOD:StealFromRareScanner()
                     displayID = tonumber(rsButton.ModelView:GetDisplayInfo())
                 end
                 
-                local isChestFallback = false
-                if rsButton.isContainer or rsButton.isEvent then
-                    isChestFallback = true
-                end
-                if rareName and (string.find(rareName, "事件") or string.find(rareName, "宝箱") or string.find(rareName, "箱")) then
-                    isChestFallback = true
-                end
+                -- 直接从 RareScanner 获取“是否为NPC”的绝对判断
+                local isNpc = (rsButton.isNpc == true)
                 
-                MOD:TriggerAlert(rareName, nil, npcID, displayID, isChestFallback)
+                MOD:TriggerAlert(rareName, nil, npcID, displayID, isNpc)
             end)
         end
         
@@ -251,8 +258,10 @@ function MOD:StealFromRareScanner()
 end
 
 function MOD:Initialize()
-    if not C_AddOns.IsAddOnLoaded("RareScanner") then return end
+    -- 先注入设置项，不管 RareScanner 开没开
     InjectOptions()
+    
+    if not C_AddOns.IsAddOnLoaded("RareScanner") then return end
     if not E.db.WishFlex.modules.rareAlert then return end
     
     self:CreateAlertFrame()
