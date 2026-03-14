@@ -9,7 +9,8 @@ P["WishFlex"].narrative = {
     width = 800,
     height = 650,
     markHighestSellPrice = true, 
-    disabledByConflict = false, -- 【新增】用于记录是否因为插件冲突而被迫休眠
+    disabledByConflict = false,
+    autoSelectNPCs = "", -- 【新增】用于存储 NPC 自动选择配置
 }
 
 local classColor = E:ClassColor(E.myclass, true)
@@ -32,7 +33,7 @@ E.PopupDialogs["WISHFLEX_CONFLICT_DIALOGUEUI"] = {
     OnCancel = function(self, data, reason)
         if reason == "clicked" then
             E.db.WishFlex.modules.narrative = false
-            E.db.WishFlex.narrative.disabledByConflict = true -- 【新增】打上“因冲突休眠”的标签
+            E.db.WishFlex.narrative.disabledByConflict = true 
             ReloadUI()
         end
     end,
@@ -642,6 +643,27 @@ function WFN:CheckConflictAndBlock()
     return false
 end
 
+-- 【新增】解析配置并自动选择 NPC 选项引擎
+function WFN:ProcessAutoSelect()
+    local guid = UnitGUID("npc")
+    local npcID = guid and select(6, strsplit("-", guid))
+    local autoSelectStr = E.db.WishFlex.narrative.autoSelectNPCs or ""
+    
+    if npcID and autoSelectStr ~= "" then
+        for line in string.gmatch(autoSelectStr, "[^\r\n]+") do
+            local id, idx = string.match(line, "^%s*(%d+)%s*:%s*(%d+)%s*$")
+            if id == npcID then
+                local targetIndex = tonumber(idx)
+                if self.CurrentKeyCallbacks and self.CurrentKeyCallbacks[targetIndex] then
+                    self.CurrentKeyCallbacks[targetIndex]() -- 瞬间选中该选项
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
 function WFN:PrepareUI(mode)
     self.CurrentMode = mode
     self.Frame.RewardTitle:Hide()
@@ -659,6 +681,10 @@ function WFN:GOSSIP_SHOW()
     self.Frame.AcceptButton:Hide()
     self.Frame.DeclineButton:Hide()
     self:UpdateGossipOptions()
+    
+    -- 【新增】如果在列表里匹配到当前 NPC 的自动选取规则，则阻止面板显示
+    if self:ProcessAutoSelect() then return end
+    
     self.Frame:Show()
 end
 
@@ -675,6 +701,10 @@ function WFN:QUEST_GREETING()
     self.Frame.AcceptButton:Hide()
     self.Frame.DeclineButton:Hide()
     self:UpdateGossipOptions()
+    
+    -- 【新增】自动选取规则同样适用于多任务问候界面
+    if self:ProcessAutoSelect() then return end
+    
     self.Frame:Show()
 end
 
@@ -792,7 +822,7 @@ local function InjectOptions()
                 get = function() return E.db.WishFlex.modules.narrative end, 
                 set = function(_, v) 
                     E.db.WishFlex.modules.narrative = v
-                    E.db.WishFlex.narrative.disabledByConflict = false -- 【新增】当玩家手动开关时，清除休眠标记
+                    E.db.WishFlex.narrative.disabledByConflict = false 
                     E:StaticPopup_Show("CONFIG_RL") 
                 end 
             }, 
@@ -811,6 +841,17 @@ local function InjectOptions()
                 get = function() return E.db.WishFlex.narrative.markHighestSellPrice end, 
                 set = function(_, v) E.db.WishFlex.narrative.markHighestSellPrice = v; end 
             },
+            -- 【新增】自定义自动选取输入选项
+            autoSelectNPCs = {
+                order = 5,
+                type = "input",
+                multiline = true,
+                name = "自动选择 NPC 选项",
+                desc = "输入 NPC 的 ID 和需要自动选择的选项序号，用英文冒号隔开，每行一条。\n\n获取 NPC ID：把鼠标放在 NPC 身上，查看 ElvUI 的信息提示框（通常在底部或右下角）。\n\n例如，想让 ID 为 12345 的 NPC 自动选择第 1 项：\n12345:1\n67890:2",
+                get = function() return E.db.WishFlex.narrative.autoSelectNPCs end,
+                set = function(_, v) E.db.WishFlex.narrative.autoSelectNPCs = v end,
+                width = "full",
+            },
         }
     }
 end
@@ -824,8 +865,6 @@ function WFN:Initialize()
     self.Initialized = true
     InjectOptions() 
     
-    -- 【自动唤醒引擎】
-    -- 如果带有“因冲突休眠”标记，且 Dialogue UI 已经被玩家移除或禁用，则自动唤醒本模块
     if E.db.WishFlex.narrative.disabledByConflict and not C_AddOns.IsAddOnLoaded("DialogueUI") then
         E.db.WishFlex.modules.narrative = true
         E.db.WishFlex.narrative.disabledByConflict = false

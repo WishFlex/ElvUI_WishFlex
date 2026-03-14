@@ -133,7 +133,7 @@ function mod:ShowSpellSelectionWindow()
     tabGroup:SetCallback("OnGroupSelected", function(container, event, group)
         container:ReleaseChildren()
         local scroll = AceGUI:Create("ScrollFrame"); scroll:SetLayout("Flow"); container:AddChild(scroll)
-        local label = AceGUI:Create("Label"); label:SetText("点击条目添加到 AuraGlow 监控。\n提示：请在战斗中或拥有BUFF/技能冷却时打开此界面。\n\n"); label:SetFullWidth(true); label:SetFontObject(GameFontNormal); scroll:AddChild(label)
+        local label = AceGUI:Create("Label"); label:SetText("点击条目添加到监控。\n提示：请在战斗中或拥有BUFF/技能冷却时打开此界面。\n\n"); label:SetFullWidth(true); label:SetFontObject(GameFontNormal); scroll:AddChild(label)
         local list = (group == "auras") and auras or cooldowns; local isAura = (group == "auras")
         if #list == 0 then
             local emptyLabel = AceGUI:Create("Label"); emptyLabel:SetText("当前目录为空。"); emptyLabel:SetFullWidth(true); scroll:AddChild(emptyLabel)
@@ -152,15 +152,16 @@ local function InjectOptions()
         get = function(info) return E.db.WishFlex.auraGlow[info[#info]] end,
         set = function(info, v) E.db.WishFlex.auraGlow[info[#info]] = v; mod:UpdateGlows(true) end,
         args = {
-            enable = { order = 1, type = "toggle", name = "全局启用 AuraGlow" },
+            enable = { order = 1, type = "toggle", name = "启用" },
             desc = { order = 3, type = "description", name = "|cff00ffcc触发机制提示：|r\n【技能槽发光覆盖】和【独立图标】是三个完全独立的开关系统，你可以任意组合。\n" },
             spellManagement = {
-                order = 4, type = "group", name = "当前角色技能与BUFF监控", guiInline = true,
+                order = 4, type = "group", name = "技能与BUFF", guiInline = true,
                 args = {
-                    openScanner = { order = 1, type = "execute", name = "1. 打开扫描器快捷添加", desc = "可视化快速添加监控。", func = function() mod:ShowSpellSelectionWindow() end },
+                    openScanner = { order = 1, type = "execute", name = "1. 快捷添加", desc = "可视化快速添加监控。", func = function() mod:ShowSpellSelectionWindow() end },
                     addSpell = { order = 1.5, type = "input", name = "手动添加技能ID", get = function() return "" end, set = function(_, v) local id = tonumber(v) if id then local sDB = GetSpellDB() if not sDB[tostring(id)] then sDB[tostring(id)] = { buffID = id, class = playerClass, hideOriginal = true } end if not sDB[tostring(id)].auraGlow then sDB[tostring(id)].auraGlow = { glowEnable = true, iconEnable = false, iconGlowEnable = true, duration = 0 } end mod.selectedSpell = tostring(id); mod:UpdateGlows(true) end end },
                     selectSpell = { 
                         order = 2, type = "select", name = "2. 管理已添加的监控", 
+                        -- (这里的 values, get, set 逻辑保持不变)
                         values = function() 
                             local vals = {} 
                             local currentSpecID = 0
@@ -180,11 +181,10 @@ local function InjectOptions()
                         set = function(_, v) mod.selectedSpell = v end 
                     },
                     
-                    glowEnable = { order = 3.1, type = "toggle", name = "覆盖原生技能并发光", desc = "生成一个高亮的图标直接覆盖在褪色的原技能上方，阻挡多余倒数文本并产生发光。（如果没有找到对应的技能框，则自动隐藏）", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and d.auraGlow and d.auraGlow.glowEnable or false end, set = function(_, v) if mod.selectedSpell then GetSpellDB()[mod.selectedSpell].auraGlow.glowEnable = v; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
-                    iconEnable = { order = 3.2, type = "toggle", name = "生成独立实体图标", desc = "单独生成一个带有边框的真实图标在右侧锚点组。", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and d.auraGlow and d.auraGlow.iconEnable or false end, set = function(_, v) if mod.selectedSpell then GetSpellDB()[mod.selectedSpell].auraGlow.iconEnable = v; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
+                    glowEnable = { order = 3.1, type = "toggle", name = "覆盖原生技能发光", desc = "生成一个高亮的图标直接覆盖在褪色的原技能上方，阻挡多余倒数文本并产生发光。（如果没有找到对应的技能框，则自动隐藏）", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and d.auraGlow and d.auraGlow.glowEnable or false end, set = function(_, v) if mod.selectedSpell then GetSpellDB()[mod.selectedSpell].auraGlow.glowEnable = v; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
+                    iconEnable = { order = 3.2, type = "toggle", name = "独立实体图标", desc = "单独生成一个带有边框的真实图标在右侧锚点组。", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and d.auraGlow and d.auraGlow.iconEnable or false end, set = function(_, v) if mod.selectedSpell then GetSpellDB()[mod.selectedSpell].auraGlow.iconEnable = v; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
                     iconGlowEnable = { order = 3.3, type = "toggle", name = "独立图标是否发光", desc = "如果启用了上面的生成独立图标，此选项控制该独立图标自身是否带有光效。", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and d.auraGlow and d.auraGlow.iconGlowEnable ~= false end, set = function(_, v) if mod.selectedSpell then GetSpellDB()[mod.selectedSpell].auraGlow.iconGlowEnable = v; mod:UpdateGlows(true) end end, disabled = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return not d or not d.auraGlow or not d.auraGlow.iconEnable end },
                     
-                    -- 【新增】：专属专精选择
                     spec = { 
                         order = 3.4, type = "select", name = "所属专精", desc = "切换不在设定范围内的专精时，此监控将自动隐藏。",
                         values = function() local vals = { [0] = "通用 (所有专精)" }; for i = 1, 4 do local id, name = GetSpecializationInfo(i); if id and name then vals[id] = name end end; return vals end,
@@ -193,45 +193,45 @@ local function InjectOptions()
                         disabled = function() return not mod.selectedSpell end 
                     },
 
-                    hideOriginal = { order = 3.5, type = "toggle", name = "隐藏右上角原 BUFF", desc = "开启后交由系统无污染接管隐藏。", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and d.hideOriginal ~= false end, set = function(_,v) if mod.selectedSpell then GetSpellDB()[mod.selectedSpell].hideOriginal = v; local CC = WUI:GetModule('CooldownCustom', true); if CC and CC.TriggerLayout then CC:TriggerLayout() end end end, disabled = function() return not mod.selectedSpell end },
-                    editBuff = { order = 4, type = "input", name = "对应的触发 Buff ID", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and tostring(d.buffID or mod.selectedSpell) or "" end, set = function(_, v) local id = tonumber(v); if mod.selectedSpell and id then GetSpellDB()[mod.selectedSpell].buffID = id; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
-                    trackMode = { order = 5, type = "select", name = "持续追踪模式", values = { ["auto"] = "自动追踪 (推荐：常规增益)", ["manual"] = "手动倒数 (专用：术士恶魔/实体仆从)" }, get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return (d and d.auraGlow and d.auraGlow.duration and d.auraGlow.duration > 0) and "manual" or "auto" end, set = function(_, v) if mod.selectedSpell then local d = GetSpellDB()[mod.selectedSpell].auraGlow; if v == "auto" then d.duration = 0 else d.duration = 20 end mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
-                    editDuration = { order = 6, type = "input", name = "手动持续时间(秒)", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and tostring(d.auraGlow and d.auraGlow.duration or 0) or "0" end, set = function(_, v) local val = tonumber(v); if mod.selectedSpell and val then GetSpellDB()[mod.selectedSpell].auraGlow.duration = val; mod:UpdateGlows(true) end end, disabled = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return not (d and d.auraGlow and d.auraGlow.duration and d.auraGlow.duration > 0) end },
+                    hideOriginal = { order = 3.5, type = "toggle", name = "隐藏增益", desc = "开启后交由系统无污染接管隐藏。", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and d.hideOriginal ~= false end, set = function(_,v) if mod.selectedSpell then GetSpellDB()[mod.selectedSpell].hideOriginal = v; local CC = WUI:GetModule('CooldownCustom', true); if CC and CC.TriggerLayout then CC:TriggerLayout() end end end, disabled = function() return not mod.selectedSpell end },
+                    editBuff = { order = 4, type = "input", name = "对应的触发BuffID", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and tostring(d.buffID or mod.selectedSpell) or "" end, set = function(_, v) local id = tonumber(v); if mod.selectedSpell and id then GetSpellDB()[mod.selectedSpell].buffID = id; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
+                    trackMode = { order = 5, type = "select", name = "持续追踪模式", values = { ["auto"] = "可追踪增益", ["manual"] = "自定义倒数" }, get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return (d and d.auraGlow and d.auraGlow.duration and d.auraGlow.duration > 0) and "manual" or "auto" end, set = function(_, v) if mod.selectedSpell then local d = GetSpellDB()[mod.selectedSpell].auraGlow; if v == "auto" then d.duration = 0 else d.duration = 20 end mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end },
+                    editDuration = { order = 6, type = "input", name = "手动持续时间", get = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return d and tostring(d.auraGlow and d.auraGlow.duration or 0) or "0" end, set = function(_, v) local val = tonumber(v); if mod.selectedSpell and val then GetSpellDB()[mod.selectedSpell].auraGlow.duration = val; mod:UpdateGlows(true) end end, disabled = function() local d = mod.selectedSpell and GetSpellDB()[mod.selectedSpell]; return not (d and d.auraGlow and d.auraGlow.duration and d.auraGlow.duration > 0) end },
                     deleteSpell = { order = 7, type = "execute", name = "删除选中监控", func = function() if mod.selectedSpell then local id = tonumber(mod.selectedSpell); GetSpellDB()[mod.selectedSpell].auraGlow = nil; if not GetSpellDB()[mod.selectedSpell].auraBar then GetSpellDB()[mod.selectedSpell] = nil end mod.selectedSpell = nil; if OverlayFrames[id] then LCG.PixelGlow_Stop(OverlayFrames[id], "WishAuraOverlayGlow"); OverlayFrames[id]:Hide() end if IndependentFrames[id] then LCG.PixelGlow_Stop(IndependentFrames[id], "WishAuraIndGlow"); IndependentFrames[id]:Hide() end; local CC = WUI:GetModule('CooldownCustom', true); if CC and CC.TriggerLayout then CC:TriggerLayout() end; mod:UpdateGlows(true) end end, disabled = function() return not mod.selectedSpell end }
                 }
             },
             independentGroup = {
-                order = 4.5, type = "group", name = "独立排版设置 (锚点：独立发光实体组)", guiInline = true,
+                order = 4.5, type = "group", name = "独立图标设置", guiInline = true,
                 get = function(info) return E.db.WishFlex.auraGlow.independent[info[#info]] end,
                 set = function(info, v) E.db.WishFlex.auraGlow.independent[info[#info]] = v; mod:UpdateGlows(true) end,
                 args = {
-                    size = { order = 1, type = "range", name = "图标宽高", min = 10, max = 100, step = 1 },
-                    gap = { order = 2, type = "range", name = "排列间距", min = 0, max = 30, step = 1 },
-                    growth = { order = 3, type = "select", name = "增长方向", values = { ["LEFT"] = "向左扩展", ["RIGHT"] = "向右扩展", ["UP"] = "向上扩展", ["DOWN"] = "向下扩展", ["CENTER_HORIZONTAL"] = "水平居中" } },
+                    size = { order = 1, type = "range", name = "尺寸", min = 10, max = 100, step = 1 }, -- 统一为尺寸
+                    gap = { order = 2, type = "range", name = "间距", min = 0, max = 30, step = 1 }, -- 统一为间距
+                    growth = { order = 3, type = "select", name = "增长方向", values = { ["LEFT"] = "左", ["RIGHT"] = "右", ["UP"] = "上", ["DOWN"] = "下", ["CENTER_HORIZONTAL"] = "居中" } },
                 }
             },
             glowGroup = {
-                order = 5, type = "group", name = "全局发光样式 (两者通用)", guiInline = true,
+                order = 5, type = "group", name = "全局发光样式", guiInline = true,
                 args = {
-                    glowEnable = { order = 1, type = "toggle", name = "允许发光特效", desc = "控制发光材质的全局总开关。若关闭，则只有图标和时间，不会有任何边框发光特效。" },
+                    glowEnable = { order = 1, type = "toggle", name = "启用", desc = "控制发光材质的全局总开关。若关闭，则只有图标和时间，不会有任何边框发光特效。" },
                     glowType = { order = 2, type = "select", name = "发光类型", values = { pixel = "像素发光", autocast = "自动施法发光", button = "按钮发光", proc = "触发发光" } },
                     glowUseCustomColor = { order = 3, type = "toggle", name = "使用自定义颜色" },
-                    glowColor = { order = 4, type = "color", name = "发光颜色", hasAlpha = true, get = function() local t = E.db.WishFlex.auraGlow.glowColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1, t and t.a or 1 end, set = function(_, r, g, b, a) E.db.WishFlex.auraGlow.glowColor = {r=r,g=g,b=b,a=a}; mod:UpdateGlows(true) end, disabled = function() return not E.db.WishFlex.auraGlow.glowUseCustomColor end },
+                    glowColor = { order = 4, type = "color", name = "颜色", hasAlpha = true, get = function() local t = E.db.WishFlex.auraGlow.glowColor; return t and t.r or 1, t and t.g or 1, t and t.b or 1, t and t.a or 1 end, set = function(_, r, g, b, a) E.db.WishFlex.auraGlow.glowColor = {r=r,g=g,b=b,a=a}; mod:UpdateGlows(true) end, disabled = function() return not E.db.WishFlex.auraGlow.glowUseCustomColor end },
                     glowPixelLines = { order = 10, type = "range", name = "线条数", min = 1, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end },
                     glowPixelFrequency = { order = 11, type = "range", name = "频率", min = -2, max = 2, step = 0.05, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end },
                     glowPixelLength = { order = 12, type = "range", name = "长度(0为自动)", min = 0, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end },
                     glowPixelThickness = { order = 13, type = "range", name = "粗细", min = 1, max = 10, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end },
-                    glowPixelXOffset = { order = 14, type = "range", name = "X轴偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end },
-                    glowPixelYOffset = { order = 15, type = "range", name = "Y轴偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end },
+                    glowPixelXOffset = { order = 14, type = "range", name = "X偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end }, -- 统一为 X偏移
+                    glowPixelYOffset = { order = 15, type = "range", name = "Y偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "pixel" end }, -- 统一为 Y偏移
                     glowAutocastParticles = { order = 20, type = "range", name = "粒子数", min = 1, max = 16, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "autocast" end },
                     glowAutocastFrequency = { order = 21, type = "range", name = "频率", min = -2, max = 2, step = 0.05, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "autocast" end },
                     glowAutocastScale = { order = 22, type = "range", name = "缩放", min = 0.5, max = 3, step = 0.05, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "autocast" end },
-                    glowAutocastXOffset = { order = 23, type = "range", name = "X轴偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "autocast" end },
-                    glowAutocastYOffset = { order = 24, type = "range", name = "Y轴偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "autocast" end },
+                    glowAutocastXOffset = { order = 23, type = "range", name = "X偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "autocast" end }, -- 统一为 X偏移
+                    glowAutocastYOffset = { order = 24, type = "range", name = "Y偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "autocast" end }, -- 统一为 Y偏移
                     glowButtonFrequency = { order = 30, type = "range", name = "频率(0为默认)", min = 0, max = 2, step = 0.05, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "button" end },
                     glowProcDuration = { order = 40, type = "range", name = "持续时间", min = 0.1, max = 5, step = 0.1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "proc" end },
-                    glowProcXOffset = { order = 41, type = "range", name = "X轴偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "proc" end },
-                    glowProcYOffset = { order = 42, type = "range", name = "Y轴偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "proc" end },
+                    glowProcXOffset = { order = 41, type = "range", name = "X偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "proc" end }, -- 统一为 X偏移
+                    glowProcYOffset = { order = 42, type = "range", name = "Y偏移", min = -20, max = 20, step = 1, hidden = function() return E.db.WishFlex.auraGlow.glowType ~= "proc" end }, -- 统一为 Y偏移
                 }
             },
             textGroup = {
@@ -240,27 +240,27 @@ local function InjectOptions()
                 set = function(info, v) E.db.WishFlex.auraGlow.text[info[#info]] = v; mod:UpdateGlows(true) end,
                 args = {
                     font = { order = 1, type = "select", name = "字体", dialogControl = 'LSM30_Font', values = LSM:HashTable("font") },
-                    fontSize = { order = 2, type = "range", name = "大小", min = 8, max = 60, step = 1 },
-                    fontOutline = { order = 3, type = "select", name = "描边", values = { ["NONE"] = "无", ["OUTLINE"] = "OUTLINE", ["MONOCHROMEOUTLINE"] = "MONOCROMEOUTLINE", ["THICKOUTLINE"] = "THICKOUTLINE" } },
+                    fontSize = { order = 2, type = "range", name = "字体大小", min = 8, max = 60, step = 1 }, -- 统一为字体大小
+                    fontOutline = { order = 3, type = "select", name = "字体描边", values = { ["NONE"] = "无", ["OUTLINE"] = "OUTLINE", ["MONOCHROMEOUTLINE"] = "MONOCROMEOUTLINE", ["THICKOUTLINE"] = "THICKOUTLINE" } }, -- 统一为字体描边
                     color = { order = 4, type = "color", name = "颜色", get = function() local c = E.db.WishFlex.auraGlow.text.color; return c.r, c.g, c.b end, set = function(_, r, g, b) E.db.WishFlex.auraGlow.text.color = {r=r, g=g, b=b}; mod:UpdateGlows(true) end },
-                    textAnchor = { order = 4.5, type = "select", name = "锚点 (九宫格)", values = { ["TOPLEFT"] = "左上", ["TOP"] = "正上", ["TOPRIGHT"] = "右上", ["LEFT"] = "正左", ["CENTER"] = "居中", ["RIGHT"] = "正右", ["BOTTOMLEFT"] = "左下", ["BOTTOM"] = "正下", ["BOTTOMRIGHT"] = "右下" } },
-                    offsetX = { order = 5, type = "range", name = "X轴偏移", min = -50, max = 50, step = 1 },
-                    offsetY = { order = 6, type = "range", name = "Y轴偏移", min = -50, max = 50, step = 1 },
+                    textAnchor = { order = 4.5, type = "select", name = "锚点", values = { ["TOPLEFT"] = "左上", ["TOP"] = "正上", ["TOPRIGHT"] = "右上", ["LEFT"] = "正左", ["CENTER"] = "居中", ["RIGHT"] = "正右", ["BOTTOMLEFT"] = "左下", ["BOTTOM"] = "正下", ["BOTTOMRIGHT"] = "右下" } }, -- 统一为锚点
+                    offsetX = { order = 5, type = "range", name = "X偏移", min = -50, max = 50, step = 1 }, -- 统一为 X偏移
+                    offsetY = { order = 6, type = "range", name = "Y偏移", min = -50, max = 50, step = 1 }, -- 统一为 Y偏移
                 }
             },
             independentTextGroup = {
-                order = 7, type = "group", name = "独立图标倒数文本 (独立设置)", guiInline = true,
+                order = 7, type = "group", name = "独立图标文本", guiInline = true,
                 get = function(info) return E.db.WishFlex.auraGlow.independentText[info[#info]] end,
                 set = function(info, v) E.db.WishFlex.auraGlow.independentText[info[#info]] = v; mod:UpdateGlows(true) end,
                 args = {
-                    enable = { order = 1, type = "toggle", name = "启用独立文本设置", desc = "开启后，独立图标将使用此处的文本设置，不再与覆盖层共用。" },
+                    enable = { order = 1, type = "toggle", name = "启用", desc = "开启后，独立图标将使用此处的文本设置，不再与覆盖层共用。" },
                     font = { order = 2, type = "select", name = "字体", dialogControl = 'LSM30_Font', values = LSM:HashTable("font"), disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end },
-                    fontSize = { order = 3, type = "range", name = "大小", min = 8, max = 60, step = 1, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end },
-                    fontOutline = { order = 4, type = "select", name = "描边", values = { ["NONE"] = "无", ["OUTLINE"] = "OUTLINE", ["MONOCHROMEOUTLINE"] = "MONOCROMEOUTLINE", ["THICKOUTLINE"] = "THICKOUTLINE" }, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end },
+                    fontSize = { order = 3, type = "range", name = "字体大小", min = 8, max = 60, step = 1, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end }, -- 统一
+                    fontOutline = { order = 4, type = "select", name = "字体描边", values = { ["NONE"] = "无", ["OUTLINE"] = "OUTLINE", ["MONOCHROMEOUTLINE"] = "MONOCROMEOUTLINE", ["THICKOUTLINE"] = "THICKOUTLINE" }, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end }, -- 统一
                     color = { order = 5, type = "color", name = "颜色", get = function() local c = E.db.WishFlex.auraGlow.independentText.color; return c.r, c.g, c.b end, set = function(_, r, g, b) E.db.WishFlex.auraGlow.independentText.color = {r=r, g=g, b=b}; mod:UpdateGlows(true) end, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end },
-                    textAnchor = { order = 5.5, type = "select", name = "锚点 (九宫格)", values = { ["TOPLEFT"] = "左上", ["TOP"] = "正上", ["TOPRIGHT"] = "右上", ["LEFT"] = "正左", ["CENTER"] = "居中", ["RIGHT"] = "正右", ["BOTTOMLEFT"] = "左下", ["BOTTOM"] = "正下", ["BOTTOMRIGHT"] = "右下" }, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end },
-                    offsetX = { order = 6, type = "range", name = "X轴偏移", min = -50, max = 50, step = 1, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end },
-                    offsetY = { order = 7, type = "range", name = "Y轴偏移", min = -50, max = 50, step = 1, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end },
+                    textAnchor = { order = 5.5, type = "select", name = "锚点", values = { ["TOPLEFT"] = "左上", ["TOP"] = "正上", ["TOPRIGHT"] = "右上", ["LEFT"] = "正左", ["CENTER"] = "居中", ["RIGHT"] = "正右", ["BOTTOMLEFT"] = "左下", ["BOTTOM"] = "正下", ["BOTTOMRIGHT"] = "右下" }, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end }, -- 统一
+                    offsetX = { order = 6, type = "range", name = "X偏移", min = -50, max = 50, step = 1, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end }, -- 统一
+                    offsetY = { order = 7, type = "range", name = "Y偏移", min = -50, max = 50, step = 1, disabled = function() return not E.db.WishFlex.auraGlow.independentText.enable end }, -- 统一
                 }
             }
         }
